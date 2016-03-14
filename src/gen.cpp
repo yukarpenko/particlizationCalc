@@ -43,10 +43,9 @@ struct element {
 } ;
 
 element *surf ;
-int *npart ;               // number of generated particles in each event
-
-const double pmax = 10.0 ;
-const double rapmax = 6.0 ;
+vector<double> pt, phiP;
+vector<vector<double> > dndp;
+int nhydros;
 
 const double c1 = pow(1./2./hbarC/TMath::Pi(),3.0) ;
 double *cumulantDensity ; // particle densities (thermal). Seems to be redundant, but needed for fast generation
@@ -116,12 +115,30 @@ void load(char *filename, int N)
  //cout<<"..done.\n" ;
  //cout<<"Veff = "<<vEff<<"  dvMax = "<<dvMax<<endl ;
  //cout<<"Veff(old) = "<<vEffOld<<endl ;
- cout<<"failed elements = "<<nfail<<endl ;
- cout<<"mu_cut elements = "<<ncut<<endl ;
-// ---- prepare some stuff to calculate thermal densities
- NPART=database->GetNParticles() ;
- cout<<"NPART="<<NPART<<endl ;
- cout<<"dsigmaMax="<<dsigmaMax<<endl ;
+ //cout<<"failed elements = "<<nfail<<endl ;
+ //cout<<"mu_cut elements = "<<ncut<<endl ;
+//// ---- prepare some stuff to calculate thermal densities
+ //NPART=database->GetNParticles() ;
+ //cout<<"NPART="<<NPART<<endl ;
+ //cout<<"dsigmaMax="<<dsigmaMax<<endl ;
+}
+
+void initCalc()
+{
+ for(double pti=0.1; pti<2.5; pti+=0.1){
+  pt.push_back(pti);
+ }
+ for(double phi=0.0; phi<2.0*M_PI; phi+=M_PI/100.0){
+  phiP.push_back(phi);
+ }
+ dndp.resize(pt.size());
+ cout << "vector size: " << dndp.size() << endl;
+ for(int i=0; i<dndp.size(); i++){
+  dndp[i].resize(phiP.size());
+  for(int j=0; j<dndp[i].size(); j++)
+  dndp[i][j] = 0.0;
+ }
+ nhydros = 0;
 }
 
 double ffthermal(double *x, double *par)
@@ -133,25 +150,11 @@ double ffthermal(double *x, double *par)
   return x[0]*x[0]/( exp((sqrt(x[0]*x[0]+mass*mass)-mu)/T) - stat ) ;
 }
 
-void doCalculations(char *out_file)
+void doCalculations()
 {
  const double gmumu [4] = {1., -1., -1., -1.} ;
  const double mass = 0.1396; // pion
- vector<double> pt, phiP;
- for(double pti=0.1; pti<2.5; pti+=0.1){
-  pt.push_back(pti);
- }
- for(double phi=0.0; phi<2.0*M_PI; phi+=M_PI/100.0){
-  phiP.push_back(phi);
- }
- double dndp [pt.size()][phiP.size()];
- for(int ip=0; ip<pt.size(); ip++)
- for(int iphi=0; iphi<phiP.size(); iphi++)
-  dndp[ip][iphi] = 0.0;
- 
- ofstream fout (out_file);
- if(!fout) { cout<<"I/O error with " << out_file << endl; exit(1); }
- 
+
  for(int iel=0; iel<Nelem; iel++){ // loop over all elements
   for(int ip=0; ip<pt.size(); ip++)
   for(int iphi=0; iphi<phiP.size(); iphi++){
@@ -165,30 +168,46 @@ void doCalculations(char *out_file)
   dndp[ip][iphi] += c1 * pds / ( exp(pu/surf[iel].T) - 1.0);
  }
  } // loop over all elements
+ nhydros++;
+ delete [] surf;
+}
+
+void outputHarmonics(char *out_file)
+{
+  for(int ip=0; ip<pt.size(); ip++)
+  for(int iphi=0; iphi<phiP.size(); iphi++){
+   dndp[ip][iphi] /= nhydros;
+  }
+ ofstream fout (out_file);
+ if(!fout) { cout<<"I/O error with " << out_file << endl; exit(1); }
  // Fourier coefficients
-  const int nhar = 6;
-  double vn [nhar][pt.size()];
+  const int nhar = 8;
+  double vn_cos [nhar][pt.size()], vn_sin [nhar][pt.size()];
   for(int ip=0; ip<pt.size(); ip++)
   for(int ihar=0; ihar<nhar; ihar++){
-   vn[ihar][ip] = 0.0;
+   vn_cos[ihar][ip] = 0.0;
+   vn_sin[ihar][ip] = 0.0;
   }
 
   // Fourier integrals
   for(int ip=0; ip<pt.size(); ip++)
   for(int iphi=0; iphi<phiP.size(); iphi++)
   for(int ihar=0; ihar<nhar; ihar++){
-   vn[ihar][ip] += dndp[ip][iphi] * cos(ihar * phiP[iphi]) / (double)(phiP.size());
+   vn_cos[ihar][ip] += dndp[ip][iphi] * cos(ihar * phiP[iphi]) / (double)(phiP.size());
+   vn_sin[ihar][ip] += dndp[ip][iphi] * sin(ihar * phiP[iphi]) / (double)(phiP.size());
   }
   // normalisations
   for(int ip=0; ip<pt.size(); ip++)
   for(int ihar=1; ihar<nhar; ihar++){
-   vn[ihar][ip] = vn[ihar][ip] / vn[0][ip];
+   vn_cos[ihar][ip] /= vn_cos[0][ip];
+   vn_sin[ihar][ip] /= vn_cos[0][ip];
   }
  // writing results to file
  for(int ip=0; ip<pt.size(); ip++){
   fout << setw(14) << pt[ip];
   for(int ihar=0; ihar<nhar; ihar++)
-   fout << setw(14) << vn[ihar][ip];
+   fout << setw(14) << vn_cos[ihar][ip];
+   //fout << setw(14) << sqrt(pow(vn_cos[ihar][ip],2) + pow(vn_sin[ihar][ip],2));
   fout << endl;
  }
  fout.close();

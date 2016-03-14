@@ -10,6 +10,8 @@ extern TRandom3 *rnd ;
 
 // functions
 void load(char *filename, int N);
-void doCalculations(char *out_file);
+void initCalc(void);
+void doCalculations(void);
+void outputHarmonics(char *out_file);
 }
 

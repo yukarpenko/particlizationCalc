@@ -39,11 +39,11 @@ int main(int argc, char **argv)
 {
   // command-line parameters
  if(argc!=3){
-  cout << "usage: ./calc <surface_file> <output_file>\n" << endl ;
+  cout << "usage: ./calc <surface_file_list> <output_file>\n" << endl ;
   exit(1) ;
  }
- char surface_file [200], output_file [200];
- strcpy(surface_file, argv[1]);
+ char surface_file_list [200], output_file [200];
+ strcpy(surface_file_list, argv[1]);
  strcpy(output_file, argv[2]);
 //========= particle database init
 	DatabasePDG2 *database = new DatabasePDG2("Tb/ptl3.data","Tb/dky3.mar.data");
@@ -57,14 +57,20 @@ int main(int argc, char **argv)
   gen::database = database ;
   
 // ========== generator init
+ gen::initCalc();
+ ifstream fin(surface_file_list);
+ while(!fin.fail()){
+ char surface_file [200];
+ fin >> surface_file;
+ if(fin.fail()) break;
  gen::load(surface_file,getNlines(surface_file)) ;
- //cout << "dfMax = " << gen::calcDFMax() << endl ;
+ gen::doCalculations();
+ }
+ gen::outputHarmonics(output_file);
 
  // ========== trees & files
  time_t start, end ;
  time(&start);
- 
- gen::doCalculations(output_file);
 
  time(&end); float diff2 = difftime(end, start);
  cout<<"Execution time = "<<diff2<< " [sec]" << endl;
