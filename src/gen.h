@@ -12,5 +12,5 @@ extern TRandom3 *rnd;
 void load(char *filename, int N);
 void initCalc(void);
 void doCalculations(void);
-void outputHarmonics(char *out_file);
+void outputPolarization(char *out_file);
 }

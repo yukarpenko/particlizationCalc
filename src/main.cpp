@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
   gen::load(surface_file, getNlines(surface_file));
   gen::doCalculations();
  }
- gen::outputHarmonics(output_file);
+ gen::outputPolarization(output_file);
 
  // ========== trees & files
  time_t start, end;

@@ -24,12 +24,21 @@ using namespace std;
 #define _USE_MATH_DEFINES
 const double C_Feq = (pow(0.5 / M_PI / hbarC, 3));
 
+// Levi-Civita symbols
+// i,j,k,l = 0...3
+int levi(int i, int j, int k, int l)
+{
+ if((i==j)||(i==k)||(i==l)||(j==k)||(j==l)||(k==l)) return 0;
+ else return ( (i-j)*(i-k)*(i-l)*(j-k)*(j-l)*(k-l)/12 );
+}
+
 namespace gen {
 
 int Nelem;
 double *ntherm, dvMax, dsigmaMax;
 TRandom3 *rnd;
 DatabasePDG2 *database;
+ParticlePDG2 *particle; // chosen particle sort for the polarization calc
 int NPART;
 
 struct element {
@@ -37,19 +46,16 @@ struct element {
  double u[4];
  double dsigma[4];
  double T, mub, muq, mus;
- double pi[10];
- double Pi;
+ double dbeta [4][4];
 };
 
 element *surf;
-vector<double> pt, phiP;
-vector<vector<double> > dndp;
+vector<double> px, py;
+vector<vector<vector<double> > > Pi_num; // numerator of Eq. 34
+vector<vector<double> > Pi_den; // denominator of Eq. 34
 int nhydros;
 
 const double c1 = pow(1. / 2. / hbarC / TMath::Pi(), 3.0);
-double *cumulantDensity;  // particle densities (thermal). Seems to be
-                          // redundant, but needed for fast generation
-double totalDensity;      // sum of all thermal densities
 
 // ######## load the elements
 void load(char *filename, int N) {
@@ -70,7 +76,6 @@ void load(char *filename, int N) {
  // ---- reading loop
  string line;
  istringstream instream;
- cout << "1?: failbit=" << instream.fail() << endl;
  for (int n = 0; n < Nelem; n++) {
   getline(fin, line);
   instream.str(line);
@@ -79,16 +84,18 @@ void load(char *filename, int N) {
   instream >> surf[n].tau >> surf[n].x >> surf[n].y >> surf[n].eta >>
       surf[n].dsigma[0] >> surf[n].dsigma[1] >> surf[n].dsigma[2] >>
       surf[n].dsigma[3] >> surf[n].u[0] >> surf[n].u[1] >> surf[n].u[2] >>
-      surf[n].u[3] >> surf[n].T >> surf[n].mub >> surf[n].muq >> surf[n].mus >>
-      dvEff;
-  if (surf[n].muq > 0.12) {
-   surf[n].muq = 0.12;  // omit charge ch.pot. for test
-   ncut++;
-  }
-  if (surf[n].muq < -0.12) {
-   surf[n].muq = -0.12;  // omit charge ch.pot. for test
-   ncut++;
-  }
+      surf[n].u[3] >> surf[n].T >> surf[n].mub >> surf[n].muq >> surf[n].mus;
+  for(int i=0; i<4; i++)
+  for(int j=0; j<4; j++)
+   instream >> surf[n].dbeta[i][j];
+  //if (surf[n].muq > 0.12) {
+   //surf[n].muq = 0.12;  // omit charge ch.pot. for test
+   //ncut++;
+  //}
+  //if (surf[n].muq < -0.12) {
+   //surf[n].muq = -0.12;  // omit charge ch.pot. for test
+   //ncut++;
+  //}
 
   if (instream.fail()) {
    cout << "reading failed at line " << n << "; exiting\n";
@@ -136,17 +143,23 @@ void load(char *filename, int N) {
 }
 
 void initCalc() {
- for (double pti = 0.1; pti < 2.5; pti += 0.1) {
-  pt.push_back(pti);
+ for (double _px = -2.0; _px <= 2.0; _px += 0.2) {
+  px.push_back(_px);
  }
- for (double phi = 0.0; phi < 2.0 * M_PI; phi += M_PI / 100.0) {
-  phiP.push_back(phi);
+ for (double _py = -2.0; _py <= 2.0; _py += 0.2) {
+  py.push_back(_py);
  }
- dndp.resize(pt.size());
- cout << "vector size: " << dndp.size() << endl;
- for (int i = 0; i < dndp.size(); i++) {
-  dndp[i].resize(phiP.size());
-  for (int j = 0; j < dndp[i].size(); j++) dndp[i][j] = 0.0;
+ Pi_num.resize(px.size());
+ Pi_den.resize(px.size());
+ for (int i = 0; i < Pi_num.size(); i++) {
+  Pi_num[i].resize(py.size());
+  Pi_den[i].resize(py.size());
+  for (int j = 0; j < Pi_num[i].size(); j++) {
+   Pi_den[i][j] = 0.0;
+   Pi_num[i][j].resize(4);
+   for(int k=0; k<4; k++)
+    Pi_num[i][j][k] = 0.0;
+  }
  }
  nhydros = 0;
 }
@@ -161,69 +174,59 @@ double ffthermal(double *x, double *par) {
 
 void doCalculations() {
  const double gmumu[4] = {1., -1., -1., -1.};
- const double mass = 0.1396;  // pion
+ particle = database->GetPDGParticle(3212);
+ const double mass = particle->GetMass();  // pion
+ const double baryonCharge = particle->GetBaryonNumber();
+ const double electricCharge = particle->GetElectricCharge();
+ const double strangeness = particle->GetStrangeness();
+ cout << "calculations for: " << particle->GetName() << ", charges = "
+  << baryonCharge << "  " << electricCharge << "  " << strangeness << endl;
+ int nFermiFail = 0; // number of elements where nf>1.0
 
  for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
-  for (int ip = 0; ip < pt.size(); ip++)
-   for (int iphi = 0; iphi < phiP.size(); iphi++) {
-    double mT = sqrt(mass * mass + pt[ip] * pt[ip]);
-    double p[4] = {mT, pt[ip] * cos(phiP[iphi]), pt[ip] * sin(phiP[iphi]), 0};
+  for (int ipx = 0; ipx < px.size(); ipx++)
+   for (int ipy = 0; ipy < py.size(); ipy++) {
+    double mT = sqrt(mass * mass + px[ipx] * px[ipx] + py[ipy] * py[ipy]);
+    double p[4] = {mT, px[ipx], py[ipy], 0};
+    double p_[4] = {mT, -px[ipx], -py[ipy], 0};
     double pds = 0., pu = 0.;
     for (int mu = 0; mu < 4; mu++) {
      pds += p[mu] * surf[iel].dsigma[mu];
      pu += p[mu] * surf[iel].u[mu] * gmumu[mu];
     }
-    dndp[ip][iphi] += c1 * pds / (exp(pu / surf[iel].T) - 1.0);
+    const double mutot = surf[iel].mub * baryonCharge
+      + surf[iel].muq * electricCharge + surf[iel].mus * strangeness;
+    const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) + 1.0);
+    if(nf > 1.0) nFermiFail++;
+    Pi_den[ipx][ipy] += pds * nf ;
+    for(int mu=0; mu<4; mu++)
+     for(int nu=0; nu<4; nu++)
+      for(int rh=0; rh<4; rh++)
+       for(int sg=0; sg<4; sg++)
+        Pi_num[ipx][ipy][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
+                                * p_[sg] * surf[iel].dbeta[nu][rh];
    }
  }  // loop over all elements
- nhydros++;
  delete[] surf;
+ cout << "number of elements*pT configurations where nf>1.0: " << nFermiFail
+  << endl;
 }
 
-void outputHarmonics(char *out_file) {
- for (int ip = 0; ip < pt.size(); ip++)
-  for (int iphi = 0; iphi < phiP.size(); iphi++) {
-   dndp[ip][iphi] /= nhydros;
-  }
+void outputPolarization(char *out_file) {
  ofstream fout(out_file);
  if (!fout) {
   cout << "I/O error with " << out_file << endl;
   exit(1);
  }
- // Fourier coefficients
- const int nhar = 8;
- double vn_cos[nhar][pt.size()], vn_sin[nhar][pt.size()];
- for (int ip = 0; ip < pt.size(); ip++)
-  for (int ihar = 0; ihar < nhar; ihar++) {
-   vn_cos[ihar][ip] = 0.0;
-   vn_sin[ihar][ip] = 0.0;
-  }
-
- // Fourier integrals
- for (int ip = 0; ip < pt.size(); ip++)
-  for (int iphi = 0; iphi < phiP.size(); iphi++)
-   for (int ihar = 0; ihar < nhar; ihar++) {
-    vn_cos[ihar][ip] +=
-        dndp[ip][iphi] * cos(ihar * phiP[iphi]) / (double)(phiP.size());
-    vn_sin[ihar][ip] +=
-        dndp[ip][iphi] * sin(ihar * phiP[iphi]) / (double)(phiP.size());
-   }
- // normalisations
- for (int ip = 0; ip < pt.size(); ip++)
-  for (int ihar = 1; ihar < nhar; ihar++) {
-   vn_cos[ihar][ip] /= vn_cos[0][ip];
-   vn_sin[ihar][ip] /= vn_cos[0][ip];
-  }
- // writing results to file
- for (int ip = 0; ip < pt.size(); ip++) {
-  fout << setw(14) << pt[ip];
-  for (int ihar = 0; ihar < nhar; ihar++) fout << setw(14) << vn_cos[ihar][ip];
-  // fout << setw(14) << sqrt(pow(vn_cos[ihar][ip],2) +
-  // pow(vn_sin[ihar][ip],2));
-  fout << endl;
+ for (int ipx = 0; ipx < px.size(); ipx++)
+  for (int ipy = 0; ipy < py.size(); ipy++) {
+   fout << setw(14) << px[ipx] << setw(14) << py[ipy]
+     << setw(14) << Pi_den[ipx][ipy];
+   for(int mu=0; mu<4; mu++)
+    fout << setw(14) << Pi_num[ipx][ipy][mu] * hbarC / (8.0 * particle->GetMass());
+   fout << endl;
  }
  fout.close();
- cout << "calculation done.\n" << endl;
 }
 
 }  // end namespace gen
