@@ -124,9 +124,7 @@ Bool_t DatabasePDG2::LoadParticles() {
  //       << "       Width range                                        : (" <<
  //       fMinimumWidth << "; " << fMaximumWidth << ")" << endl;
 
- particleFile.exceptions(ios::failbit);
  while (!particleFile.eof()) {
-  try {
    particleFile >> mass >> width >> isospin >> gparity >> spin >> pparity >>
        cparity >> antiparticle >> pdg >> charge >> status >> name >> recipt;
    mass = mass / 1000.;
@@ -134,11 +132,10 @@ Bool_t DatabasePDG2::LoadParticles() {
    if (width < 0.) width = 0.;
    //      cout << setw(15) << name << setw(12) << mass << setw(12) << width <<
    //      setw(5) << spin << setw(5) << isospin << setw(12) << pdg ;
-  } catch (ios::failure const& problem) {
-   // cout << "reading particle file:\n" ;
-   cout << problem.what() << endl;
-   break;
-  }
+   if(!particleFile) {
+    cout << "particle file is read.\n";
+    break;
+   }
 
   fParticles[fNParticles]->SetName(name);
   fParticles[fNParticles]->SetPDG(pdg);
@@ -469,21 +466,18 @@ Bool_t DatabasePDG2::LoadDecays() {
  Double_t branching;
  Int_t isCG;
 
- decayFile.exceptions(ios::failbit);
  while (!decayFile.eof()) {
   mother_pdg = 0;
   for (Int_t i = 0; i < 3; i++) daughter_pdg[i] = 0;
   for (Int_t i = 0; i < 3; i++) daughter_found[i] = 1;
   branching = -1.0;
-  try {
    decayFile >> mother_pdg;
    for (Int_t i = 0; i < 3; i++) decayFile >> daughter_pdg[i];
    decayFile >> branching >> isCG;
-  } catch (ios::failure const& problem) {
-   // cout << "reading decays file:\n" ;
-   cout << problem.what() << endl;
-   break;
-  }
+   if(!decayFile) {
+    cout << "decay file is read.\n";
+    break;
+   }
   if ((mother_pdg != 0) && (daughter_pdg[0] != 0) && (branching >= 0)) {
    Int_t nDaughters = 0;
    for (Int_t i = 0; i < 3; i++)
