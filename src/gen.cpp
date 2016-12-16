@@ -143,10 +143,10 @@ void load(char *filename, int N) {
 }
 
 void initCalc() {
- for (double _px = -2.0; _px <= 2.0; _px += 0.2) {
+ for (double _px = -4.0; _px < 4.05; _px += 0.2) {
   px.push_back(_px);
  }
- for (double _py = -2.0; _py <= 2.0; _py += 0.2) {
+ for (double _py = -4.0; _py < 4.05; _py += 0.2) {
   py.push_back(_py);
  }
  Pi_num.resize(px.size());
@@ -174,7 +174,7 @@ double ffthermal(double *x, double *par) {
 
 void doCalculations() {
  const double gmumu[4] = {1., -1., -1., -1.};
- particle = database->GetPDGParticle(3212);
+ particle = database->GetPDGParticle(3122);
  const double mass = particle->GetMass();  // pion
  const double baryonCharge = particle->GetBaryonNumber();
  const double electricCharge = particle->GetElectricCharge();
@@ -182,8 +182,10 @@ void doCalculations() {
  cout << "calculations for: " << particle->GetName() << ", charges = "
   << baryonCharge << "  " << electricCharge << "  " << strangeness << endl;
  int nFermiFail = 0; // number of elements where nf>1.0
-
+ int nBadElem = 0;
  for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
+  if(fabs(surf[iel].dbeta[0][0])>1000.0) nBadElem++;
+  //if(fabs(surf[iel].dbeta[0][0])>1000.0) continue;
   for (int ipx = 0; ipx < px.size(); ipx++)
    for (int ipy = 0; ipy < py.size(); ipy++) {
     double mT = sqrt(mass * mass + px[ipx] * px[ipx] + py[ipy] * py[ipy]);
@@ -208,6 +210,7 @@ void doCalculations() {
    }
  }  // loop over all elements
  delete[] surf;
+ cout << "doCalculations: total, bad = " << setw(12) << Nelem << setw(12) << nBadElem << endl;
  cout << "number of elements*pT configurations where nf>1.0: " << nFermiFail
   << endl;
 }
