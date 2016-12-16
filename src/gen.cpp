@@ -143,10 +143,10 @@ void load(char *filename, int N) {
 }
 
 void initCalc() {
- for (double _px = -4.0; _px < 4.05; _px += 0.2) {
+ for (double _px = -3.0; _px <= 0.05; _px += 10.0) {
   px.push_back(_px);
  }
- for (double _py = -4.0; _py < 4.05; _py += 0.2) {
+ for (double _py = 3.0; _py <= 4.05; _py += 10.0) {
   py.push_back(_py);
  }
  Pi_num.resize(px.size());
@@ -174,7 +174,7 @@ double ffthermal(double *x, double *par) {
 
 void doCalculations() {
  const double gmumu[4] = {1., -1., -1., -1.};
- particle = database->GetPDGParticle(3122);
+ particle = database->GetPDGParticle(3212);
  const double mass = particle->GetMass();  // pion
  const double baryonCharge = particle->GetBaryonNumber();
  const double electricCharge = particle->GetElectricCharge();
@@ -182,15 +182,17 @@ void doCalculations() {
  cout << "calculations for: " << particle->GetName() << ", charges = "
   << baryonCharge << "  " << electricCharge << "  " << strangeness << endl;
  int nFermiFail = 0; // number of elements where nf>1.0
- int nBadElem = 0;
+ ofstream foutd ("xy_omegaTZ_dPi.dat");
+ foutd << "# x y  omega_tz  dPi\n";
+ int nGood=0, nBad=0;
+ int xel = 0; // element with maximal contribution to Pi
+ double pixMax = 0.;
  for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
-  if(fabs(surf[iel].dbeta[0][0])>1000.0) nBadElem++;
-  //if(fabs(surf[iel].dbeta[0][0])>1000.0) continue;
   for (int ipx = 0; ipx < px.size(); ipx++)
    for (int ipy = 0; ipy < py.size(); ipy++) {
     double mT = sqrt(mass * mass + px[ipx] * px[ipx] + py[ipy] * py[ipy]);
     double p[4] = {mT, px[ipx], py[ipy], 0};
-    double p_[4] = {mT, -px[ipx], -py[ipy], 0};
+    double p_[4] = {0.0, -px[ipx], -py[ipy], 0};
     double pds = 0., pu = 0.;
     for (int mu = 0; mu < 4; mu++) {
      pds += p[mu] * surf[iel].dsigma[mu];
@@ -201,18 +203,34 @@ void doCalculations() {
     const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) + 1.0);
     if(nf > 1.0) nFermiFail++;
     Pi_den[ipx][ipy] += pds * nf ;
-    for(int mu=0; mu<4; mu++)
+    double dPix = 0.0;
      for(int nu=0; nu<4; nu++)
       for(int rh=0; rh<4; rh++)
-       for(int sg=0; sg<4; sg++)
-        Pi_num[ipx][ipy][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
+       for(int sg=0; sg<4; sg++) {
+        dPix += pds * nf * (1. - nf) * levi(1, nu, rh, sg)
                                 * p_[sg] * surf[iel].dbeta[nu][rh];
+       }
+    Pi_num[ipx][ipy][1] += dPix;
+    if(fabs(surf[iel].eta)<0.3)
+    foutd << surf[iel].x << " " << surf[iel].y << " " <<
+     0.5*(surf[iel].dbeta[0][3]-surf[iel].dbeta[3][0]) << " " << dPix << endl;
+    if(fabs(surf[iel].dbeta[0][0])<1000.0) nGood++;
+    else nBad++;
+    if(fabs(dPix)>fabs(pixMax)) {
+     pixMax = dPix;
+     xel = iel;
+    }
+   }
+   if(iel%10000==0) {
+    cout<<"["<<iel/10000<<"]";
+    cout.flush();
    }
  }  // loop over all elements
  delete[] surf;
- cout << "doCalculations: total, bad = " << setw(12) << Nelem << setw(12) << nBadElem << endl;
+ foutd.close();
  cout << "number of elements*pT configurations where nf>1.0: " << nFermiFail
   << endl;
+ cout << "dbeta[0,0]: good = " << nGood << ", bad = " << nBad << endl;
 }
 
 void outputPolarization(char *out_file) {
