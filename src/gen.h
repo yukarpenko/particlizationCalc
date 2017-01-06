@@ -13,4 +13,6 @@ void load(char *filename, int N);
 void initCalc(void);
 void doCalculations(void);
 void outputPolarization(char *out_file);
+void sumPtPolarization();
+void calcBasicQuantities(void);
 }

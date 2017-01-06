@@ -50,7 +50,7 @@ struct element {
 };
 
 element *surf;
-vector<double> px, py;
+vector<double> px, py, rap;
 vector<vector<vector<double> > > Pi_num; // numerator of Eq. 34
 vector<vector<double> > Pi_den; // denominator of Eq. 34
 int nhydros;
@@ -149,6 +149,9 @@ void initCalc() {
  for (double _py = -4.0; _py < 4.05; _py += 0.2) {
   py.push_back(_py);
  }
+ for (double _rap = -1.0; _rap < 1.05; _rap += 0.4) {
+  rap.push_back(_rap);
+ }
  Pi_num.resize(px.size());
  Pi_den.resize(px.size());
  for (int i = 0; i < Pi_num.size(); i++) {
@@ -173,6 +176,7 @@ double ffthermal(double *x, double *par) {
 }
 
 void doCalculations() {
+ cout <<"call doCalculations()\n";
  const double gmumu[4] = {1., -1., -1., -1.};
  particle = database->GetPDGParticle(3122);
  const double mass = particle->GetMass();  // pion
@@ -213,6 +217,73 @@ void doCalculations() {
  cout << "doCalculations: total, bad = " << setw(12) << Nelem << setw(12) << nBadElem << endl;
  cout << "number of elements*pT configurations where nf>1.0: " << nFermiFail
   << endl;
+}
+
+void calcBasicQuantities() {
+ cout << "call calcBasicQuantities()\n";
+ const double gmumu[4] = {1., -1., -1., -1.};
+ particle = database->GetPDGParticle(3122);
+ const double mass = particle->GetMass();  // pion
+ const double baryonCharge = particle->GetBaryonNumber();
+ const double electricCharge = particle->GetElectricCharge();
+ const double strangeness = particle->GetStrangeness();
+ double den=0., num_v2 = 0., num_pt=0.;
+ vector<double> den_v1 (rap.size(), 0.);
+ vector<double> num_v1 (rap.size(), 0.);
+ for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
+  for (int ipx = 0; ipx < px.size(); ipx++)
+   for (int ipy = 0; ipy < py.size(); ipy++) {
+    double mT = sqrt(mass * mass + px[ipx] * px[ipx] + py[ipy] * py[ipy]);
+    double p[4] = {mT, px[ipx], py[ipy], 0};
+    double pds = 0., pu = 0.;
+    for (int mu = 0; mu < 4; mu++) {
+     pds += p[mu] * surf[iel].dsigma[mu];
+     pu += p[mu] * surf[iel].u[mu] * gmumu[mu];
+    }
+    const double mutot = surf[iel].mub * baryonCharge
+      + surf[iel].muq * electricCharge + surf[iel].mus * strangeness;
+    const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) - 1.0);
+    //if(nf > 1.0) nFermiFail++;
+    den += pds * nf;
+    num_v2 += (px[ipx] * px[ipx] - py[ipy] * py[ipy])/
+     (px[ipx] * px[ipx] + py[ipy] * py[ipy]) * pds * nf;
+    num_pt += sqrt(px[ipx] * px[ipx] + py[ipy] * py[ipy]) * pds * nf;
+    // *** v_1 calc
+    for (int irap = 0; irap < rap.size(); irap++) {
+     double p[4] = {mT*cosh(rap[irap]), px[ipx], py[ipy], mT*sinh(rap[irap])};
+     double pds = 0., pu = 0.;
+     for (int mu = 0; mu < 4; mu++) {
+      pds += p[mu] * surf[iel].dsigma[mu];
+      pu += p[mu] * surf[iel].u[mu] * gmumu[mu];
+     }
+     const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) - 1.0);
+     den_v1[irap] += pds * nf;
+     num_v1[irap] += px[ipx] / sqrt(px[ipx] * px[ipx] + py[ipy] * py[ipy])
+      * pds * nf;
+    } // rapidity loop for v_1
+   }
+ }  // loop over all elements
+ cout << "*** calcBasicQuantities:\n";
+ cout << "v_2:   " << num_v2/den << "  num, den = " << num_v2 << "  " << den << endl;
+ cout << "<p_T>: " << num_pt/den << "  num, den = " << num_pt << "  " << den << endl;
+ cout << "rapidity-dependent v_1:\n";
+ for (int irap = 0; irap < rap.size(); irap++)
+  cout << setw(14) << num_v1[irap]/den_v1[irap];
+ cout << endl;
+}
+
+void sumPtPolarization() {
+ double Pi [4] = {0.}, norm=0.0;
+ for (int ipx = 0; ipx < px.size(); ipx++)
+  for (int ipy = 0; ipy < py.size(); ipy++) {
+   for(int mu=0; mu<4; mu++)
+    Pi[mu] += Pi_num[ipx][ipy][mu] * hbarC / (8.0 * particle->GetMass());
+   norm += Pi_den[ipx][ipy];
+ }
+ cout << "*** polarization components:\n";
+ for(int mu=0; mu<4; mu++)
+  cout << setw(14) << Pi[mu]/norm;
+ cout << endl;
 }
 
 void outputPolarization(char *out_file) {

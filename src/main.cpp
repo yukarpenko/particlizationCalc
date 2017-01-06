@@ -52,15 +52,15 @@ int main(int argc, char **argv) {
  cout << " pion index = " << database->GetPionIndex() << endl;
  gen::database = database;
 
+ time_t start, end;
+ time(&start);
  // ========== generator init
  gen::initCalc();
  gen::load(surface_file, getNlines(surface_file));
+ gen::calcBasicQuantities();
  gen::doCalculations();
- gen::outputPolarization(output_file);
-
- // ========== trees & files
- time_t start, end;
- time(&start);
+ gen::sumPtPolarization();
+ //gen::outputPolarization(output_file);
 
  time(&end);
  float diff2 = difftime(end, start);
