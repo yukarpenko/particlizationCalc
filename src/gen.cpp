@@ -13,6 +13,7 @@
 #include <fstream>
 #include <sstream>
 #include <TF1.h>
+#include <omp.h>
 
 #include "DatabasePDG2.h"
 #include "gen.h"
@@ -51,8 +52,8 @@ struct element {
 
 element *surf;
 vector<double> px, py, rap;
-vector<vector<vector<double> > > Pi_num; // numerator of Eq. 34
-vector<vector<double> > Pi_den; // denominator of Eq. 34
+double Pi_num [4]; // numerator of Eq. 34
+double Pi_den; // denominator of Eq. 34
 int nhydros;
 
 const double c1 = pow(1. / 2. / hbarC / TMath::Pi(), 3.0);
@@ -152,18 +153,9 @@ void initCalc() {
  for (double _rap = -1.0; _rap < 1.05; _rap += 0.4) {
   rap.push_back(_rap);
  }
- Pi_num.resize(px.size());
- Pi_den.resize(px.size());
- for (int i = 0; i < Pi_num.size(); i++) {
-  Pi_num[i].resize(py.size());
-  Pi_den[i].resize(py.size());
-  for (int j = 0; j < Pi_num[i].size(); j++) {
-   Pi_den[i][j] = 0.0;
-   Pi_num[i][j].resize(4);
-   for(int k=0; k<4; k++)
-    Pi_num[i][j][k] = 0.0;
-  }
- }
+ Pi_den = 0.0;
+ for(int k=0; k<4; k++)
+  Pi_num[k] = 0.0;
  nhydros = 0;
 }
 
@@ -187,6 +179,7 @@ void doCalculations() {
   << baryonCharge << "  " << electricCharge << "  " << strangeness << endl;
  int nFermiFail = 0; // number of elements where nf>1.0
  int nBadElem = 0;
+ //#pragma omp parallel for schedule(dynamic,1000)
  for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
   if(fabs(surf[iel].dbeta[0][0])>1000.0) nBadElem++;
   //if(fabs(surf[iel].dbeta[0][0])>1000.0) continue;
@@ -204,12 +197,12 @@ void doCalculations() {
       + surf[iel].muq * electricCharge + surf[iel].mus * strangeness;
     const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) + 1.0);
     if(nf > 1.0) nFermiFail++;
-    Pi_den[ipx][ipy] += pds * nf ;
+    Pi_den += pds * nf ;
     for(int mu=0; mu<4; mu++)
      for(int nu=0; nu<4; nu++)
       for(int rh=0; rh<4; rh++)
        for(int sg=0; sg<4; sg++)
-        Pi_num[ipx][ipy][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
+        Pi_num[mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
                                 * p_[sg] * surf[iel].dbeta[nu][rh];
    }
  }  // loop over all elements
@@ -217,6 +210,10 @@ void doCalculations() {
  cout << "doCalculations: total, bad = " << setw(12) << Nelem << setw(12) << nBadElem << endl;
  cout << "number of elements*pT configurations where nf>1.0: " << nFermiFail
   << endl;
+ cout << "*** polarization components:\n";
+ for(int mu=0; mu<4; mu++)
+  cout << setw(14) << Pi_num[mu] * hbarC / (8.0 * particle->GetMass()) / Pi_den;
+ cout << endl;
 }
 
 void calcBasicQuantities() {
@@ -270,37 +267,6 @@ void calcBasicQuantities() {
  for (int irap = 0; irap < rap.size(); irap++)
   cout << setw(14) << num_v1[irap]/den_v1[irap];
  cout << endl;
-}
-
-void sumPtPolarization() {
- double Pi [4] = {0.}, norm=0.0;
- for (int ipx = 0; ipx < px.size(); ipx++)
-  for (int ipy = 0; ipy < py.size(); ipy++) {
-   for(int mu=0; mu<4; mu++)
-    Pi[mu] += Pi_num[ipx][ipy][mu] * hbarC / (8.0 * particle->GetMass());
-   norm += Pi_den[ipx][ipy];
- }
- cout << "*** polarization components:\n";
- for(int mu=0; mu<4; mu++)
-  cout << setw(14) << Pi[mu]/norm;
- cout << endl;
-}
-
-void outputPolarization(char *out_file) {
- ofstream fout(out_file);
- if (!fout) {
-  cout << "I/O error with " << out_file << endl;
-  exit(1);
- }
- for (int ipx = 0; ipx < px.size(); ipx++)
-  for (int ipy = 0; ipy < py.size(); ipy++) {
-   fout << setw(14) << px[ipx] << setw(14) << py[ipy]
-     << setw(14) << Pi_den[ipx][ipy];
-   for(int mu=0; mu<4; mu++)
-    fout << setw(14) << Pi_num[ipx][ipy][mu] * hbarC / (8.0 * particle->GetMass());
-   fout << endl;
- }
- fout.close();
 }
 
 }  // end namespace gen

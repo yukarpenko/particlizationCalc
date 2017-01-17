@@ -6,9 +6,9 @@ ROOTGLIBS    := $(shell root-config --glibs)
 
 CXX           = g++
 F             = gfortran
-CXXFLAGS      = -fPIC -O3 -std=c++11 -march=native
+CXXFLAGS      = -fPIC -O3 -std=c++11 -march=native -fopenmp
 LD            = g++
-LDFLAGS       = -O3 -march=native
+LDFLAGS       = -O3 -march=native -fopenmp
 FFLAGS        = -fPIC $(ROOTCFLAGS) -O3
 
 CXXFLAGS     += $(ROOTCFLAGS)

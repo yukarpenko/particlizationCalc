@@ -59,8 +59,6 @@ int main(int argc, char **argv) {
  gen::load(surface_file, getNlines(surface_file));
  gen::calcBasicQuantities();
  gen::doCalculations();
- gen::sumPtPolarization();
- //gen::outputPolarization(output_file);
 
  time(&end);
  float diff2 = difftime(end, start);
