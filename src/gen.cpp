@@ -13,7 +13,6 @@
 #include <fstream>
 #include <sstream>
 #include <TF1.h>
-#include <omp.h>
 
 #include "DatabasePDG2.h"
 #include "gen.h"
@@ -33,6 +32,13 @@ int levi(int i, int j, int k, int l)
  else return ( (i-j)*(i-k)*(i-l)*(j-k)*(j-l)*(k-l)/12 );
 }
 
+// index44: returns an index of pi^{mu nu} mu,nu component in a plain 1D array
+int index44(const int &i, const int &j){
+  if(i>3 || j>3 || i<0 || j<0) {std::cout<<"index44: i j " <<i<<" "<<j<<endl ; exit(1) ; }
+  if(j<i) return (i*(i+1))/2 + j ;
+  else return (j*(j+1))/2 + i ;
+}
+
 namespace gen {
 
 int Nelem;
@@ -48,6 +54,8 @@ struct element {
  double dsigma[4];
  double T, mub, muq, mus;
  double dbeta [4][4];
+ double pi [10];
+ double Pi;
 };
 
 element *surf;
@@ -86,6 +94,9 @@ void load(char *filename, int N) {
       surf[n].dsigma[0] >> surf[n].dsigma[1] >> surf[n].dsigma[2] >>
       surf[n].dsigma[3] >> surf[n].u[0] >> surf[n].u[1] >> surf[n].u[2] >>
       surf[n].u[3] >> surf[n].T >> surf[n].mub >> surf[n].muq >> surf[n].mus;
+  for(int i=0; i<10; i++)
+   instream >> surf[n].pi[i];
+  instream >> surf[n].Pi;
   for(int i=0; i<4; i++)
   for(int j=0; j<4; j++)
    instream >> surf[n].dbeta[i][j];
@@ -237,14 +248,28 @@ void calcBasicQuantities() {
      pds += p[mu] * surf[iel].dsigma[mu];
      pu += p[mu] * surf[iel].u[mu] * gmumu[mu];
     }
+    double pipp = 0.;
+    for(int i=0; i<4; i++)
+    for(int j=0; j<4; j++)
+     pipp += p[i]*p[j]*gmumu[i]*gmumu[j]*surf[iel].pi[index44(i,j)] ;
     const double mutot = surf[iel].mub * baryonCharge
       + surf[iel].muq * electricCharge + surf[iel].mus * strangeness;
-    const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) - 1.0);
+    double feq = c1 / (exp( (pu - mutot) / surf[iel].T) - 1.0);
     //if(nf > 1.0) nFermiFail++;
-    den += pds * nf;
+    double vcorr = 1.0;
+    if(surf[iel].T>0.05)
+     vcorr = (1.0 + (1.0+1.0*feq)*pipp/(2.*surf[iel].T*surf[iel].T*(0.5*1.15)));
+    if(vcorr<0.5) vcorr = 0.5;
+    if(vcorr>1.5) vcorr = 1.5;
+    feq *= vcorr;
+    den += pds * feq;
+    if(den!=den) {
+     cout << "den==nan; element " << iel << endl;
+     return;
+    }
     num_v2 += (px[ipx] * px[ipx] - py[ipy] * py[ipy])/
-     (px[ipx] * px[ipx] + py[ipy] * py[ipy]) * pds * nf;
-    num_pt += sqrt(px[ipx] * px[ipx] + py[ipy] * py[ipy]) * pds * nf;
+     (px[ipx] * px[ipx] + py[ipy] * py[ipy]) * pds * feq;
+    num_pt += sqrt(px[ipx] * px[ipx] + py[ipy] * py[ipy]) * pds * feq;
     // *** v_1 calc
     for (int irap = 0; irap < rap.size(); irap++) {
      double p[4] = {mT*cosh(rap[irap]), px[ipx], py[ipy], mT*sinh(rap[irap])};
