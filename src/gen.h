@@ -12,5 +12,6 @@ extern TRandom3 *rnd;
 void load(char *filename, int N);
 void initCalc(void);
 void doCalculations(void);
+void doFixedPt(void);
 void outputPolarization(char *out_file);
 }

@@ -13,6 +13,7 @@
 #include <fstream>
 #include <sstream>
 #include <TF1.h>
+#include <TH1D.h>
 
 #include "DatabasePDG2.h"
 #include "gen.h"
@@ -213,6 +214,83 @@ void doCalculations() {
  cout << "doCalculations: total, bad = " << setw(12) << Nelem << setw(12) << nBadElem << endl;
  cout << "number of elements*pT configurations where nf>1.0: " << nFermiFail
   << endl;
+}
+
+void doFixedPt() {
+ const double gmumu[4] = {1., -1., -1., -1.};
+ particle = database->GetPDGParticle(3122);
+ const double mass = particle->GetMass();  // pion
+ const double baryonCharge = particle->GetBaryonNumber();
+ const double electricCharge = particle->GetElectricCharge();
+ const double strangeness = particle->GetStrangeness();
+ cout << "calculations for: " << particle->GetName() << ", charges = "
+  << baryonCharge << "  " << electricCharge << "  " << strangeness << endl;
+ int nFermiFail = 0; // number of elements where nf>1.0
+ int nBadElem = 0;
+ const double px=4.0, py=4.0;
+ double Pi_den1=0.0, Pi_num1[4] = {0.}, separate[4][4][4] = {0.};
+ double dsMax = 0.0;
+ TH1D *h1 = new TH1D("dsMax","dsMax",1000,0.,2.8e-08);
+ ofstream felem ("contrib_elements");
+ for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
+ if(fabs(surf[iel].dbeta[0][0])>1000.0) nBadElem++;
+ //if(fabs(surf[iel].dbeta[0][0])>1000.0) continue;
+   double mT = sqrt(mass * mass + px * px + py * py);
+   double p[4] = {mT, px, py, 0};
+   double p_[4] = {mT, -px, -py, 0};
+   double pds = 0., pu = 0.;
+   for (int mu = 0; mu < 4; mu++) {
+    pds += p[mu] * surf[iel].dsigma[mu];
+    pu += p[mu] * surf[iel].u[mu] * gmumu[mu];
+   }
+   const double mutot = surf[iel].mub * baryonCharge
+     + surf[iel].muq * electricCharge + surf[iel].mus * strangeness;
+   const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) + 1.0);
+   if(nf > 1.0) nFermiFail++;
+   Pi_den1 += pds * nf ;
+   if(pds*nf > dsMax) dsMax = pds*nf;
+   h1->Fill(pds*nf);
+   for(int mu=0; mu<4; mu++)
+    for(int nu=0; nu<4; nu++)
+     for(int rh=0; rh<4; rh++)
+      for(int sg=0; sg<4; sg++){
+       Pi_num1[mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
+                               * p_[sg] * surf[iel].dbeta[nu][rh];
+       if(mu==3)
+        separate[sg][nu][rh] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
+                               * p_[sg] * surf[iel].dbeta[nu][rh];
+   }
+   if(pds*nf>3.88226e-11)
+    felem << setw(14) << surf[iel].tau << setw(14) << surf[iel].x << setw(14) << surf[iel].y << setw(14) << surf[iel].eta << setw(14) << surf[iel].u[0] << setw(14) << surf[iel].u[1] << setw(14) << surf[iel].u[2] << setw(14) << surf[iel].u[3] << setw(14) << surf[iel].dbeta[0][1]-surf[iel].dbeta[1][0] << setw(14) << surf[iel].dbeta[0][2]-surf[iel].dbeta[2][0] << setw(14) << pds*nf << endl;
+ }  // loop over all elements
+ delete[] surf;
+ felem.close();
+ cout << "fixedPt: total, bad = " << setw(12) << Nelem << setw(12) << nBadElem << endl;
+ cout << "number of elements*pT configurations where nf>1.0: " << nFermiFail
+  << endl;
+  cout << "px = " << px << "  py = " << py << endl;
+  cout << "fixedPt: polarization is:\n";
+  for(int mu=0; mu<4; mu++)
+   cout << setw(14) << Pi_num1[mu] * hbarC / (8.0 * particle->GetMass()) / Pi_den1;
+  cout << endl;
+  cout << "max(pds*nf) = " << dsMax << endl;
+  double sepMax = 0.0; // max of separate components
+  for(int nu=0; nu<4; nu++)
+   for(int rh=0; rh<4; rh++)
+    for(int sg=0; sg<4; sg++){
+     if(sepMax<fabs(separate[nu][rh][sg])) sepMax = fabs(separate[nu][rh][sg]);
+    }
+  for(int nu=0; nu<4; nu++)
+   for(int rh=0; rh<4; rh++)
+    for(int sg=0; sg<4; sg++){
+     cout << setw(4) << nu << setw(4) << rh << setw(4) << sg
+          << setw(14) << separate[nu][rh][sg]/sepMax << endl;
+    }
+  cout << endl;
+  cout << "resulting (unnorm) components: ";
+  for(int i=0; i<4; i++) cout << setw(14) << Pi_num1[i]/1e-7;
+  cout << endl;
+  h1->Draw();
 }
 
 void outputPolarization(char *out_file) {

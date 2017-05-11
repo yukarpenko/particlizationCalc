@@ -17,6 +17,7 @@
 #include <TF1.h>
 #include <sstream>
 #include <TUUID.h>
+#include <TApplication.h>
 
 #include "DatabasePDG2.h"
 #include "gen.h"
@@ -55,8 +56,10 @@ int main(int argc, char **argv) {
  // ========== generator init
  gen::initCalc();
  gen::load(surface_file, getNlines(surface_file));
- gen::doCalculations();
- gen::outputPolarization(output_file);
+// TApplication theApp("App", &argc, argv);
+ gen::doFixedPt();
+// theApp.Run();
+// gen::outputPolarization(output_file);
 
  // ========== trees & files
  time_t start, end;
