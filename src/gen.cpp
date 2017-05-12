@@ -50,7 +50,7 @@ struct element {
 };
 
 element *surf;
-vector<double> px, py;
+vector<double> pT, phi;
 vector<vector<vector<double> > > Pi_num; // numerator of Eq. 34
 vector<vector<double> > Pi_den; // denominator of Eq. 34
 int nhydros;
@@ -143,17 +143,17 @@ void load(char *filename, int N) {
 }
 
 void initCalc() {
- for (double _px = -4.0; _px < 4.05; _px += 0.2) {
-  px.push_back(_px);
+ for (double _pT = 0.0; _pT < 3.01; _pT += 0.2) {
+  pT.push_back(_pT);
  }
- for (double _py = -4.0; _py < 4.05; _py += 0.2) {
-  py.push_back(_py);
+ for (double _phi = 0.0; _phi < 2.0*M_PI-1e-5; _phi += M_PI/20) {
+  phi.push_back(_phi);
  }
- Pi_num.resize(px.size());
- Pi_den.resize(px.size());
+ Pi_num.resize(pT.size());
+ Pi_den.resize(pT.size());
  for (int i = 0; i < Pi_num.size(); i++) {
-  Pi_num[i].resize(py.size());
-  Pi_den[i].resize(py.size());
+  Pi_num[i].resize(phi.size());
+  Pi_den[i].resize(phi.size());
   for (int j = 0; j < Pi_num[i].size(); j++) {
    Pi_den[i][j] = 0.0;
    Pi_num[i][j].resize(4);
@@ -186,11 +186,11 @@ void doCalculations() {
  for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
   if(fabs(surf[iel].dbeta[0][0])>1000.0) nBadElem++;
   //if(fabs(surf[iel].dbeta[0][0])>1000.0) continue;
-  for (int ipx = 0; ipx < px.size(); ipx++)
-   for (int ipy = 0; ipy < py.size(); ipy++) {
-    double mT = sqrt(mass * mass + px[ipx] * px[ipx] + py[ipy] * py[ipy]);
-    double p[4] = {mT, px[ipx], py[ipy], 0};
-    double p_[4] = {mT, -px[ipx], -py[ipy], 0};
+  for (int ipt = 0; ipt < pT.size(); ipt++)
+   for (int iphi = 0; iphi < phi.size(); iphi++) {
+    double mT = sqrt(mass * mass + pT[ipt] * pT[ipt]);
+    double p[4] = {mT, pT[ipt]*cos(phi[iphi]), pT[ipt]*sin(phi[iphi]), 0};
+    double p_[4] = {mT, -pT[ipt]*cos(phi[iphi]), -pT[ipt]*sin(phi[iphi]), 0};
     double pds = 0., pu = 0.;
     for (int mu = 0; mu < 4; mu++) {
      pds += p[mu] * surf[iel].dsigma[mu];
@@ -200,12 +200,12 @@ void doCalculations() {
       + surf[iel].muq * electricCharge + surf[iel].mus * strangeness;
     const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) + 1.0);
     if(nf > 1.0) nFermiFail++;
-    Pi_den[ipx][ipy] += pds * nf ;
+    Pi_den[ipt][iphi] += pds * nf ;
     for(int mu=0; mu<4; mu++)
      for(int nu=0; nu<4; nu++)
       for(int rh=0; rh<4; rh++)
        for(int sg=0; sg<4; sg++)
-        Pi_num[ipx][ipy][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
+        Pi_num[ipt][iphi][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
                                 * p_[sg] * surf[iel].dbeta[nu][rh];
    }
  }  // loop over all elements
@@ -221,15 +221,21 @@ void outputPolarization(char *out_file) {
   cout << "I/O error with " << out_file << endl;
   exit(1);
  }
- for (int ipx = 0; ipx < px.size(); ipx++)
-  for (int ipy = 0; ipy < py.size(); ipy++) {
-   fout << setw(14) << px[ipx] << setw(14) << py[ipy]
-     << setw(14) << Pi_den[ipx][ipy];
+ for (int ipt = 0; ipt < pT.size(); ipt++)
+  for (int iphi = 0; iphi < phi.size(); iphi++) {
+   fout << setw(14) << pT[ipt] << setw(14) << phi[iphi]
+     << setw(14) << Pi_den[ipt][iphi];
    for(int mu=0; mu<4; mu++)
-    fout << setw(14) << Pi_num[ipx][ipy][mu] * hbarC / (8.0 * particle->GetMass());
+    fout << setw(14) << Pi_num[ipt][iphi][mu] * hbarC / (8.0 * particle->GetMass());
    fout << endl;
  }
  fout.close();
+ char dim_file [200];
+ strcpy(dim_file, out_file);
+ strcat(dim_file, ".dim");
+ ofstream fdim(dim_file);
+ fdim << pT.size() << "  " << phi.size() << endl;
+ fdim.close();
 }
 
 }  // end namespace gen
