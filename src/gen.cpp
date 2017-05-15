@@ -183,6 +183,7 @@ void doCalculations() {
   << baryonCharge << "  " << electricCharge << "  " << strangeness << endl;
  int nFermiFail = 0; // number of elements where nf>1.0
  int nBadElem = 0;
+ double Qx1=0., Qy1=0., Qx2=0., Qy2=0.;
  for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
   if(fabs(surf[iel].dbeta[0][0])>1000.0) nBadElem++;
   //if(fabs(surf[iel].dbeta[0][0])>1000.0) continue;
@@ -207,12 +208,18 @@ void doCalculations() {
        for(int sg=0; sg<4; sg++)
         Pi_num[ipt][iphi][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
                                 * p_[sg] * surf[iel].dbeta[nu][rh];
+    Qx1 += p[1] * pds * nf;
+    Qy1 += p[2] * pds * nf;
+    Qx2 += (p[1]*p[1] - p[2]*p[2])/(pT[ipt]+1e-10) * pds * nf;
+    Qy2 += (p[1]*p[2])/(pT[ipt]+1e-10) * pds * nf;
    }
  }  // loop over all elements
  delete[] surf;
  cout << "doCalculations: total, bad = " << setw(12) << Nelem << setw(12) << nBadElem << endl;
  cout << "number of elements*pT configurations where nf>1.0: " << nFermiFail
   << endl;
+ cout << "event_plane_vectors: " << Qx1 << "  " << Qy1 << "  "
+   << Qx2 << "  " << Qy2 << endl;
 }
 
 void outputPolarization(char *out_file) {
