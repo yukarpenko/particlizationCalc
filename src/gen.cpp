@@ -222,6 +222,46 @@ void doCalculations() {
    << Qx2 << "  " << Qy2 << endl;
 }
 
+void calcEP1() {
+ const double gmumu[4] = {1., -1., -1., -1.};
+ particle = database->GetPDGParticle(2112);
+ const double mass = particle->GetMass();  // pion
+ int nBadElem = 0;
+ double Qx1=0., Qy1=0., Qx2=0., Qy2=0.;
+ const double coshY = cosh(1.0);
+ const double sinhY = sinh(1.0);
+ const double pT = 1.0;
+ int nFFail = 0;
+ for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
+  if(fabs(surf[iel].dbeta[0][0])>1000.0) nBadElem++;
+  //if(fabs(surf[iel].dbeta[0][0])>1000.0) continue;
+  for (int iphi = 0; iphi < phi.size(); iphi++) {
+   double mT = sqrt(mass * mass + pT * pT);
+   const double sin_phi = sin(phi[iphi]);
+   const double cos_phi = cos(phi[iphi]);
+   double p1[4] = {mT*coshY, pT*cos_phi, pT*sin_phi, mT*sinhY};
+   double p2[4] = {mT*coshY, pT*cos_phi, pT*sin_phi, -mT*sinhY};
+   double pds1 = 0., pds2 = 0., pu1 = 0., pu2 = 0.;
+   for (int mu = 0; mu < 4; mu++) {
+    pds1 += p1[mu] * surf[iel].dsigma[mu];
+    pu1 += p1[mu] * surf[iel].u[mu] * gmumu[mu];
+    pds2 += p2[mu] * surf[iel].dsigma[mu];
+    pu2 += p2[mu] * surf[iel].u[mu] * gmumu[mu];
+   }
+   const double f1 = c1 * exp( - pu1 / surf[iel].T );
+   const double f2 = c1 * exp( - pu2 / surf[iel].T );
+   if(f1 > 1.0) nFFail++;
+   Qx1 += p1[1] * pds1 * f1;
+   Qy1 += p1[2] * pds1 * f1;
+   Qx2 += p2[1] * pds2 * f2;
+   Qy2 += p2[2] * pds2 * f2;
+  }
+ }  // loop over all elements
+ cout << "EP1_vectors: " << Qx1 << "  " << Qy1 << "  "
+   << Qx2 << "  " << Qy2 << endl;
+ cout << "EP_angles: " << atan2(Qy1, Qx1) << "  " << atan2(Qy2, Qx2) << endl;
+}
+
 void outputPolarization(char *out_file) {
  ofstream fout(out_file);
  if (!fout) {

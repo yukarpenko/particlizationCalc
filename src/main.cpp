@@ -55,6 +55,7 @@ int main(int argc, char **argv) {
  // ========== generator init
  gen::initCalc();
  gen::load(surface_file, getNlines(surface_file));
+ gen::calcEP1();
  gen::doCalculations();
  gen::outputPolarization(output_file);
 

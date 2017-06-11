@@ -13,4 +13,5 @@ void load(char *filename, int N);
 void initCalc(void);
 void doCalculations(void);
 void outputPolarization(char *out_file);
+void calcEP1();
 }
