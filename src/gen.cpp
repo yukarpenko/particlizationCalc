@@ -288,7 +288,7 @@ void doFixedPt() {
     }
   cout << endl;
   cout << "resulting (unnorm) components: ";
-  for(int i=0; i<4; i++) cout << setw(14) << Pi_num1[i]/1e-7;
+  for(int i=0; i<4; i++) cout << setw(14) << Pi_num1[i]/sepMax;
   cout << endl;
   h1->Draw();
 }
