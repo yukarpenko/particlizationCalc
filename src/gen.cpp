@@ -32,6 +32,15 @@ int levi(int i, int j, int k, int l)
  else return ( (i-j)*(i-k)*(i-l)*(j-k)*(j-l)*(k-l)/12 );
 }
 
+int leviC(int i, int j, int k, int l)
+// contravariant (upper indexes) Levi-Civita tensor in Minkowski coordinates
+{
+ const double gmumu[4] = {1., -1., -1., -1.};
+ if((i==j)||(i==k)||(i==l)||(j==k)||(j==l)||(k==l)) return 0;
+ else return -( (i-j)*(i-k)*(i-l)*(j-k)*(j-l)*(k-l)/12 )*
+   gmumu[i]*gmumu[j]*gmumu[k]*gmumu[l];
+}
+
 namespace gen {
 
 int Nelem;
@@ -46,12 +55,13 @@ struct element {
  double u[4];
  double dsigma[4];
  double T, mub, muq, mus;
- double dbeta [4][4];
+ double du [4][4];
+ double dT [4];
 };
 
 element *surf;
 vector<double> pT, phi;
-vector<vector<vector<double> > > Pi_num; // numerator of Eq. 34
+vector<vector<vector<double> > > Pi_num_gradT, Pi_num_accel, Pi_num_vorti; // numerator of Eq. 34
 vector<vector<double> > Pi_den; // denominator of Eq. 34
 int nhydros;
 
@@ -87,7 +97,9 @@ void load(char *filename, int N) {
       surf[n].u[3] >> surf[n].T >> surf[n].mub >> surf[n].muq >> surf[n].mus;
   for(int i=0; i<4; i++)
   for(int j=0; j<4; j++)
-   instream >> surf[n].dbeta[i][j];
+   instream >> surf[n].du[i][j];
+  for(int i=0; i<4; i++)
+   instream >> surf[n].dT[i];
   //if (surf[n].muq > 0.12) {
    //surf[n].muq = 0.12;  // omit charge ch.pot. for test
    //ncut++;
@@ -149,16 +161,25 @@ void initCalc() {
  for (double _phi = 0.0; _phi < 2.0*M_PI-1e-5; _phi += M_PI/20) {
   phi.push_back(_phi);
  }
- Pi_num.resize(pT.size());
+ Pi_num_gradT.resize(pT.size());
+ Pi_num_accel.resize(pT.size());
+ Pi_num_vorti.resize(pT.size());
  Pi_den.resize(pT.size());
- for (int i = 0; i < Pi_num.size(); i++) {
-  Pi_num[i].resize(phi.size());
+ for (int i = 0; i < Pi_den.size(); i++) {
+  Pi_num_gradT[i].resize(phi.size());
+  Pi_num_accel[i].resize(phi.size());
+  Pi_num_vorti[i].resize(phi.size());
   Pi_den[i].resize(phi.size());
-  for (int j = 0; j < Pi_num[i].size(); j++) {
+  for (int j = 0; j < Pi_den[i].size(); j++) {
    Pi_den[i][j] = 0.0;
-   Pi_num[i][j].resize(4);
-   for(int k=0; k<4; k++)
-    Pi_num[i][j][k] = 0.0;
+   Pi_num_gradT[i][j].resize(4);
+   Pi_num_accel[i][j].resize(4);
+   Pi_num_vorti[i][j].resize(4);
+   for(int k=0; k<4; k++) {
+    Pi_num_gradT[i][j][k] = 0.0;
+    Pi_num_accel[i][j][k] = 0.0;
+    Pi_num_vorti[i][j][k] = 0.0;
+   }
   }
  }
  nhydros = 0;
@@ -185,13 +206,16 @@ void doCalculations() {
  int nBadElem = 0;
  double Qx1=0., Qy1=0., Qx2=0., Qy2=0.;
  for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
-  if(fabs(surf[iel].dbeta[0][0])>1000.0) nBadElem++;
+  if(fabs(surf[iel].du[0][0])>1000.0) nBadElem++;
   //if(fabs(surf[iel].dbeta[0][0])>1000.0) continue;
+  if(surf[iel].T<1e-8) continue;
   for (int ipt = 0; ipt < pT.size(); ipt++)
    for (int iphi = 0; iphi < phi.size(); iphi++) {
     double mT = sqrt(mass * mass + pT[ipt] * pT[ipt]);
     double p[4] = {mT, pT[ipt]*cos(phi[iphi]), pT[ipt]*sin(phi[iphi]), 0};
     double p_[4] = {mT, -pT[ipt]*cos(phi[iphi]), -pT[ipt]*sin(phi[iphi]), 0};
+    double u_[4];
+    for(int i=0; i<4; i++) u_[i] = surf[iel].u[i] * gmumu[i];
     double pds = 0., pu = 0.;
     for (int mu = 0; mu < 4; mu++) {
      pds += p[mu] * surf[iel].dsigma[mu];
@@ -202,12 +226,40 @@ void doCalculations() {
     const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) + 1.0);
     if(nf > 1.0) nFermiFail++;
     Pi_den[ipt][iphi] += pds * nf ;
+    double omega[4] = {0.}, A_[4] = {0.};
     for(int mu=0; mu<4; mu++)
-     for(int nu=0; nu<4; nu++)
-      for(int rh=0; rh<4; rh++)
-       for(int sg=0; sg<4; sg++)
-        Pi_num[ipt][iphi][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
-                                * p_[sg] * surf[iel].dbeta[nu][rh];
+     for(int rh=0; rh<4; rh++)
+      for(int sg=0; sg<4; sg++)
+       for(int ta=0; ta<4; ta++) {
+        omega[mu] += 0.5 * leviC(mu, rh, sg, ta) * surf[iel].du[rh][sg] * u_[ta];
+       }
+    for(int mu=0; mu<4; mu++)
+     for(int rh=0; rh<4; rh++) {
+      A_[mu] += surf[iel].u[rh] * surf[iel].du[rh][mu];
+     }
+    double sum1[4] = {0.}, sum2[4] = {0.};
+    for(int mu=0; mu<4; mu++)
+     for(int rh=0; rh<4; rh++)
+      for(int sg=0; sg<4; sg++)
+       for(int ta=0; ta<4; ta++){
+        sum1[mu] += leviC(mu, rh, sg, ta) * surf[iel].dT[rh] * u_[sg] * p_[ta];
+        sum2[mu] += leviC(mu, rh, sg, ta) * A_[sg] * u_[rh] * p_[ta] / surf[iel].T;
+        if(sum2[mu]!=sum2[mu]) {
+         cout << "sum2 is naan\n";
+         exit(77);
+        }
+       }
+    double wp = 0.;
+    for(int mu=0; mu<4; mu++) {
+     wp += p_[mu] * omega[mu];
+    }
+    const double pref = pds * nf * (1. - nf) * hbarC / (8.0 * particle->GetMass());
+    for(int mu=0; mu<4; mu++) {
+     Pi_num_gradT[ipt][iphi][mu] += pref * sum1[mu];
+     Pi_num_accel[ipt][iphi][mu] += pref * sum2[mu];
+     Pi_num_vorti[ipt][iphi][mu] += pref * 2./surf[iel].T *
+      (omega[mu] * pu - wp * surf[iel].u[mu]);
+     }
     Qx1 += p[1] * pds * nf;
     Qy1 += p[2] * pds * nf;
     Qx2 += (p[1]*p[1] - p[2]*p[2])/(pT[ipt]+1e-10) * pds * nf;
@@ -233,7 +285,7 @@ void calcEP1() {
  const double pT = 1.0;
  int nFFail = 0;
  for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
-  if(fabs(surf[iel].dbeta[0][0])>1000.0) nBadElem++;
+  if(fabs(surf[iel].du[0][0])>1000.0) nBadElem++;
   //if(fabs(surf[iel].dbeta[0][0])>1000.0) continue;
   for (int iphi = 0; iphi < phi.size(); iphi++) {
    double mT = sqrt(mass * mass + pT * pT);
@@ -273,7 +325,14 @@ void outputPolarization(char *out_file) {
    fout << setw(14) << pT[ipt] << setw(14) << phi[iphi]
      << setw(14) << Pi_den[ipt][iphi];
    for(int mu=0; mu<4; mu++)
-    fout << setw(14) << Pi_num[ipt][iphi][mu] * hbarC / (8.0 * particle->GetMass());
+    fout << setw(14) << (Pi_num_gradT[ipt][iphi][mu] +
+      Pi_num_accel[ipt][iphi][mu] + Pi_num_vorti[ipt][iphi][mu]);
+   for(int mu=0; mu<4; mu++)
+    fout << setw(14) << Pi_num_gradT[ipt][iphi][mu];
+   for(int mu=0; mu<4; mu++)
+    fout << setw(14) << Pi_num_accel[ipt][iphi][mu];
+   for(int mu=0; mu<4; mu++)
+    fout << setw(14) << Pi_num_vorti[ipt][iphi][mu];
    fout << endl;
  }
  fout.close();
