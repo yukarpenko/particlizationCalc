@@ -52,6 +52,7 @@ struct element {
 element *surf;
 vector<double> pT, phi;
 vector<vector<vector<double> > > Pi_num; // numerator of Eq. 34
+vector<vector<vector<double> > > Pi_num_xi; // additional "xi" term
 vector<vector<double> > Pi_den; // denominator of Eq. 34
 int nhydros;
 
@@ -150,15 +151,20 @@ void initCalc() {
   phi.push_back(_phi);
  }
  Pi_num.resize(pT.size());
+ Pi_num_xi.resize(pT.size());
  Pi_den.resize(pT.size());
  for (int i = 0; i < Pi_num.size(); i++) {
   Pi_num[i].resize(phi.size());
+  Pi_num_xi[i].resize(phi.size());
   Pi_den[i].resize(phi.size());
   for (int j = 0; j < Pi_num[i].size(); j++) {
    Pi_den[i][j] = 0.0;
    Pi_num[i][j].resize(4);
-   for(int k=0; k<4; k++)
+   Pi_num_xi[i][j].resize(4);
+   for(int k=0; k<4; k++) {
     Pi_num[i][j][k] = 0.0;
+    Pi_num_xi[i][j][k] = 0.0;
+   }
   }
  }
  nhydros = 0;
@@ -174,6 +180,7 @@ double ffthermal(double *x, double *par) {
 
 void doCalculations() {
  const double gmumu[4] = {1., -1., -1., -1.};
+ const double tvect[4] = {1.,0., 0., 0.};
  particle = database->GetPDGParticle(3122);
  const double mass = particle->GetMass();  // pion
  const double baryonCharge = particle->GetBaryonNumber();
@@ -205,9 +212,14 @@ void doCalculations() {
     for(int mu=0; mu<4; mu++)
      for(int nu=0; nu<4; nu++)
       for(int rh=0; rh<4; rh++)
-       for(int sg=0; sg<4; sg++)
+       for(int sg=0; sg<4; sg++) {
         Pi_num[ipt][iphi][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
                                 * p_[sg] * surf[iel].dbeta[nu][rh];
+        for(int ta=0; ta<4; ta++)
+         Pi_num_xi[ipt][iphi][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
+                     * p_[sg] * p[ta] / p[0] * tvect[nu]
+                     * ( surf[iel].dbeta[rh][ta] + surf[iel].dbeta[ta][rh]);
+       }
     Qx1 += p[1] * pds * nf;
     Qy1 += p[2] * pds * nf;
     Qx2 += (p[1]*p[1] - p[2]*p[2])/(pT[ipt]+1e-10) * pds * nf;
@@ -274,6 +286,8 @@ void outputPolarization(char *out_file) {
      << setw(14) << Pi_den[ipt][iphi];
    for(int mu=0; mu<4; mu++)
     fout << setw(14) << Pi_num[ipt][iphi][mu] * hbarC / (8.0 * particle->GetMass());
+   for(int mu=0; mu<4; mu++)
+    fout << setw(14) << - Pi_num_xi[ipt][iphi][mu] * hbarC / (8.0 * particle->GetMass());
    fout << endl;
  }
  fout.close();
