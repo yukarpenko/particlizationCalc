@@ -89,14 +89,6 @@ void load(char *filename, int N) {
   for(int i=0; i<4; i++)
   for(int j=0; j<4; j++)
    instream >> surf[n].dbeta[i][j];
-  //if (surf[n].muq > 0.12) {
-   //surf[n].muq = 0.12;  // omit charge ch.pot. for test
-   //ncut++;
-  //}
-  //if (surf[n].muq < -0.12) {
-   //surf[n].muq = -0.12;  // omit charge ch.pot. for test
-   //ncut++;
-  //}
 
   if (instream.fail()) {
    cout << "reading failed at line " << n << "; exiting\n";
@@ -213,8 +205,10 @@ void doCalculations() {
      for(int nu=0; nu<4; nu++)
       for(int rh=0; rh<4; rh++)
        for(int sg=0; sg<4; sg++) {
+        // computing the 'standard' polarization expression
         Pi_num[ipt][iphi][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
                                 * p_[sg] * surf[iel].dbeta[nu][rh];
+        // computing the extra 'xi' term for the polarization
         for(int ta=0; ta<4; ta++)
          Pi_num_xi[ipt][iphi][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
                      * p_[sg] * p[ta] / p[0] * tvect[nu]
