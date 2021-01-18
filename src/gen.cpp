@@ -1,7 +1,7 @@
 #include <omp.h>
+#include <TCanvas.h>
 #include <TGraph.h>
 #include <TMath.h>
-#include <TGraph.h>
 #include <TVector3.h>
 #include <TLorentzVector.h>
 #include <TRandom3.h>
@@ -13,6 +13,7 @@
 #include <fstream>
 #include <sstream>
 #include <TF1.h>
+#include <TH1D.h>
 
 #include "DatabasePDG2.h"
 #include "gen.h"
@@ -55,6 +56,8 @@ vector<vector<vector<double> > > Pi_num; // numerator of Eq. 34
 vector<vector<vector<double> > > Pi_num_xi; // additional "xi" term
 vector<vector<double> > Pi_den; // denominator of Eq. 34
 int nhydros;
+TCanvas *plotSymm, *plotAsymm, *plotMod;
+TH1D *histMod, *histSymm, *histAsymm;
 
 const double c1 = pow(1. / 2. / hbarC / TMath::Pi(), 3.0);
 
@@ -160,6 +163,14 @@ void initCalc() {
   }
  }
  nhydros = 0;
+ #ifdef PLOTS
+ plotSymm = new TCanvas("plotSymm","symmetric derivatives");
+ plotAsymm = new TCanvas("plotAsymm","Asymmetric derivatives");
+ plotMod = new TCanvas("plotMod","Derivatives");
+ histSymm = new TH1D("histSymm", "histSymm", 100, 0., 5.0);
+ histAsymm = new TH1D("histAsymm", "histAsymm", 100, -1.2, 0.2);
+ histMod = new TH1D("histMod", "histMod", 100, 0., 2.0);
+ #endif
 }
 
 double ffthermal(double *x, double *par) {
@@ -226,6 +237,53 @@ void doCalculations() {
   << endl;
  cout << "event_plane_vectors: " << Qx1 << "  " << Qy1 << "  "
    << Qx2 << "  " << Qy2 << endl;
+}
+
+void calcInvariantQuantities() {
+ const double gmumu[4] = {1., -1., -1., -1.};
+ const double tvect[4] = {1.,0., 0., 0.};
+ int nBadElem = 0;
+ for (int iel = 0; iel < Nelem; iel++) {  // loop over all elements
+  if(fabs(surf[iel].dbeta[0][0])>1000.0) nBadElem++;
+  double symm_deriv = 0.0, asymm_deriv = 0.0, mod_deriv = 0.0;
+  for(int mu=0; mu<4; mu++)
+   for(int nu=0; nu<4; nu++) {
+    symm_deriv += 0.25*pow(hbarC*(surf[iel].dbeta[mu][nu]+surf[iel].dbeta[nu][mu]),2)
+		    *gmumu[mu]*gmumu[nu];
+    asymm_deriv += 0.25*pow(hbarC*(surf[iel].dbeta[mu][nu]-surf[iel].dbeta[nu][mu]),2)
+		    *gmumu[mu]*gmumu[nu];
+    mod_deriv += pow(hbarC*(surf[iel].dbeta[mu][nu]),2)
+		    *gmumu[mu]*gmumu[nu];
+    //for(int rh=0; rh<4; rh++)
+     //for(int sg=0; sg<4; sg++) {
+      //// computing the 'standard' polarization expression
+      //Pi_num[ipt][iphi][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
+                              //* p_[sg] * surf[iel].dbeta[nu][rh];
+      //// computing the extra 'xi' term for the polarization
+      //for(int ta=0; ta<4; ta++)
+       //Pi_num_xi[ipt][iphi][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
+                   //* p_[sg] * p[ta] / p[0] * tvect[nu]
+                   //* ( surf[iel].dbeta[rh][ta] + surf[iel].dbeta[ta][rh]);
+     //} // mu-nu-rho-sigma loop
+    } // mu-nu loop
+    if(fabs(surf[iel].eta)<0.5) {
+     //sqroot1 = sqrt(sqroot1);
+     if(symm_deriv!=symm_deriv)
+      cout << "symm_deriv=nan\n";
+     histSymm->Fill(symm_deriv);
+     histAsymm->Fill(asymm_deriv);
+     histMod->Fill(mod_deriv);
+   }
+ }  // loop over all elements
+ histSymm->Scale(1./histSymm->Integral(),"width");
+ histAsymm->Scale(1./histAsymm->Integral(),"width");
+ histMod->Scale(1./histMod->Integral(),"width");
+ plotSymm->cd();
+ histSymm->Draw("H");
+ plotAsymm->cd();
+ histAsymm->Draw("H");
+ plotMod->cd();
+ histMod->Draw("H");
 }
 
 void calcEP1() {

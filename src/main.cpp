@@ -1,7 +1,6 @@
 #include <omp.h>
 #include <TFile.h>
 #include <TGraph.h>
-#include <TCanvas.h>
 #include <TMath.h>
 #include <TGraph.h>
 #include <TVector3.h>
@@ -17,9 +16,20 @@
 #include <TF1.h>
 #include <sstream>
 #include <TUUID.h>
+#include <TROOT.h>
+#include <TApplication.h>
+#include <TStyle.h>
 
 #include "DatabasePDG2.h"
 #include "gen.h"
+
+// ############################################################
+//  execution modes:
+//  1) calculation of polarization
+//     #define PLOTS commented out in src/gen.h
+//  2) plots of invariant combinations of beta derivatives
+//     #define PLOTS UNcommented out in src/gen.h
+// ############################################################
 
 using namespace std;
 int getNlines(char *filename);
@@ -52,12 +62,20 @@ int main(int argc, char **argv) {
  cout << " pion index = " << database->GetPionIndex() << endl;
  gen::database = database;
 
+ #ifdef PLOTS
+ TApplication theApp("App", &argc, argv);
+ gStyle->SetOptStat(kFALSE);
+ #endif
  // ========== generator init
  gen::initCalc();
  gen::load(surface_file, getNlines(surface_file));
+ #ifndef PLOTS
  gen::calcEP1();
  gen::doCalculations();
  gen::outputPolarization(output_file);
+ #else
+ gen::calcInvariantQuantities();
+ #endif
 
  // ========== trees & files
  time_t start, end;
@@ -66,6 +84,9 @@ int main(int argc, char **argv) {
  time(&end);
  float diff2 = difftime(end, start);
  cout << "Execution time = " << diff2 << " [sec]" << endl;
+ #ifdef PLOTS
+ theApp.Run();
+ #endif
  return 0;
 }
 
