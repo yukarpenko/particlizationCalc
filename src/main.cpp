@@ -44,10 +44,14 @@ void getranseedcpp_(int *seed) { *seed = ranseed; }
 
 int main(int argc, char **argv) {
  // command-line parameters
- if (argc != 3) {
-  cout << "usage: ./calc <surface_file> <output_file>\n" << endl;
-  exit(1);
- }
+
+	 if(argc!=3 && argc !=5){
+	 cout<< "INVALID SINTAX!"<<endl;
+	 cout<<"use './calc <surface_file> <output_file>' to compute Lambda polarization at decoupling."<<endl;
+	 cout<<"use './calc <surface_file> <output_file> <pdg_mother> <pdg_son>' to compute Lambda polarization inherited from the decay mother->Lambda+son."<<endl;
+	 exit(1);
+	 }
+
  char surface_file[200], output_file[200];
  strcpy(surface_file, argv[1]);
  strcpy(output_file, argv[2]);
@@ -71,8 +75,17 @@ int main(int argc, char **argv) {
  gen::load(surface_file, getNlines(surface_file));
  #ifndef PLOTS
  gen::calcEP1();
- gen::doCalculations();
- gen::outputPolarization(output_file);
+ switch(argc){
+	 case 3:
+		gen::doCalculations();
+		gen::outputPolarization(output_file);
+	break;
+	case 5:
+		gen::Polfromdecay(atoi(argv[3]),atoi(argv[4]), output_file); //allowed decays 3212,22 or 3224,211 
+	break;
+	default:
+	cout<<"ERROR: something went wrong! Check the arguments of main."<<endl;
+}
  #else
  gen::calcInvariantQuantities();
  #endif

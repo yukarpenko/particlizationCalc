@@ -17,4 +17,6 @@ void doCalculations(void);
 void outputPolarization(char *out_file);
 void calcInvariantQuantities();
 void calcEP1();
+void Polfromdecay(int pdg_mother, int pdg_second_son,char *out_file);
+void Pol_tablewriter(int pdg_mother, int pdg_second_son,char *out_file);
 }
