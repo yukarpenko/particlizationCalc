@@ -25,7 +25,7 @@ Finally, compile the code:
 a) run vHLLE for example with: \
 `cd vhlle/` \
 `./hlle_visc -system RHIC200 -params params/glissRHIC/gliss2RHIC.20-50 -ISinput ic/glissando/sources.RHIC.20-50.dat -outputDir output/rhic200.20-50` \
-The hydro simulation above will produce a bunch of output files in the directory specified after the  -outputDir argument. One of the files, which you'll need for the next step is "beta.dat"
+The hydro simulation above will produce a bunch of output files in the directory specified after the  -outputDir argument. One of the files, which is needed for the next step is "beta.dat"
 
   b) compute the spectrum+polarization of produced Lambda hyperons \
   `cd particlizationCalc/` \
@@ -39,9 +39,9 @@ col. 0    1     2      3    4    5    6    7     8     9     10 \
      pT phi_p  dN/dpt  s^0  s^1  s^2  s^3  xi^0  xi^1  xi^2  xi^3 \
 s^mu is the numerator of Eq. (10) in 1610.04717,  dN/dpt is its denominator - all at a given pT and phi.
 
-So to compute the transverse momentum-differential polarization you should essentially divide s^mu by dN/dpt. A Python script which does this, and also plot the results is attached.
+In order to compute the transverse momentum-differential polarization, one should essentially divide s^mu by dN/dpt. The repository contains a Python3 script `output/showPolar-xi.py` which does this.
 The Python script also does the boost of the polarization vector (in practice, a boost of s^mu) to the rest frame of Lambda -> because it is the quantity which should be compared to experimental data, see Eq. 12 in the same paper.
-To run the script type: `python3 showPolar-xi.py particlizationCalc/output/rhic200.20-50` That assumes that the Python script is located in the parent directory, but you can put it anywhere. The argument to the Python script is the relative path to the output file of particlizaitonCalc code. You'll need pyton3, numpy-python3, matplotlib-python3 installed for the script to run.
+To run the script type: `cd output; python3 showPolar-xi.py rhic200.20-50`. The argument to the Python script is the relative path to the output file of particlizaitonCalc code. You'll need pyton3, numpy-python3, matplotlib-python3 installed for the script to run.
  
 An update: recently, we have published an updated formalism to compute the Lambda polarization: arXiv:2103.14621, which includes an extra term - see Eq. 3 therein.
 Therefore, the output from step 3 contains separately the "standard" polarization term from 1610.04717, and also the polarization stemming from the new term - therefore there are columns (xi^0, xi^1, xi^2, xi^3) in the output. So in practice the total polarization would be equal to (s^i + xi^i)/(dN/dpt).
