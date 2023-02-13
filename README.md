@@ -9,7 +9,7 @@ https://github.com/yukarpenko/vhlle
 
 README.txt, part "I. GETTING and BUILDING vHLLE on Linux"
 
-!! A non-main branch of the code is used to compute polarization. Therefore, after setting up vHLLE, checkout into polarization_calc_dbeta_dec2021 branch. To do that, in vhlle/ directory run "git checkout polarization_calc_dbeta_dec2021". Re-compile the code with "make clean && make".
+!! A non-main branch of the code is used to compute polarization. Therefore, after setting up vHLLE, checkout into polarization_calc_dbeta_dec2021 branch. To do that, in vhlle/ directory run "git checkout polarization_dbeta_dec2021". Re-compile the code with "make clean && make".
 
 ### 2. Getting the 'particlizationCalc' code
 get it from this repository:
