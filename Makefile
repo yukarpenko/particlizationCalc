@@ -5,7 +5,6 @@ ROOTLIBS     := $(shell root-config --libs)
 ROOTGLIBS    := $(shell root-config --glibs)
 
 CXX           = g++
-F             = gfortran
 CXXFLAGS      = -fPIC -O3 -std=c++11
 LD            = g++
 LDFLAGS       = -O3
@@ -25,7 +24,7 @@ TARGET = calc
 #------------------------------------------------------------------------------
 
 $(TARGET): $(HYDROO)
-		$(LD) $(LDFLAGS) $^ -o $@ $(LIBS) -lgfortran
+	$(LD) $(LDFLAGS) $^ -o $@ $(LIBS)
 		@echo "$@ done"
 
 clean:
