@@ -24,7 +24,7 @@ Finally, compile the code:
 **Remarks for Apple users:** \
 To compile the code on OSX, some requirements must be satisfied before running `make`. For the following steps it is assumed that Homebrew has already been installed on the system.
 1. Natively, the clang compiler does not have access to the OpenMP header file which is needed in the code. To install the library, execute `brew install libomp`. By default, this will create the `omp.h` file in a directory similar to `/opt/homebrew/Cellar/libomp/15.0.7/include/`.
-2. To make the OpenMP header file accessible to the compiler, the path to `omp.h` must be set as a CPATH environment variable by running `export CPATH=[path_to_omp.h]`, so for the example path above `export CPATH=/opt/homebrew/Cellar/libomp/15.0.7/include/`
+2. To make the OpenMP header file accessible to the compiler, the path to `omp.h` must be set as a CPATH environment variable by running `export CPATH=[path_to_omp.h]`, so for the example path above `export CPATH=/opt/homebrew/Cellar/libomp/15.0.7/include/` (it can be checked that the variable has been set correctly by running `env`)
 3. Now, the code can be compiled by running `make` in the particlizationCalc/ directory
 
 ### 3. Running the chain
