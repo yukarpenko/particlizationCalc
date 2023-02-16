@@ -9,7 +9,7 @@ https://github.com/yukarpenko/vhlle
 
 README.txt, part "I. GETTING and BUILDING vHLLE on Linux"
 
-!! A non-main branch of the code is used to compute polarization. Therefore, after setting up vHLLE, checkout into polarization_calc_dbeta_dec2021 branch. To do that, in vhlle/ directory run "git checkout polarization_dbeta_dec2021". Re-compile the code with "make clean && make".
+!! A non-main branch of the code is used to compute polarization. Therefore, after setting up vHLLE, checkout into polarization_dbeta_dec2021 branch. To do that, in vhlle/ directory run `git checkout polarization_dbeta_dec2021` . Re-compile the code with `make clean && make` .
 
 ### 2. Getting the 'particlizationCalc' code
 get it from this repository:
@@ -20,6 +20,12 @@ checkout into 'polar_xi' branch (`git checkout polar_xi`)
 
 Finally, compile the code:
 `mkdir obj; make`  -> which should create a binary named "calc".
+
+**Remarks for Apple users:** \
+To compile the code on OSX, some requirements must be satisfied before running `make`. For the following steps it is assumed that Homebrew has already been installed on the system.
+1. Natively, the clang compiler does not have access to the OpenMP header file which is needed in the code. To install the library, execute `brew install libomp`. By default, this will create the `omp.h` file in a directory similar to `/opt/homebrew/Cellar/libomp/15.0.7/include/`.
+2. To make the OpenMP header file accessible to the compiler, the path to `omp.h` must be set as a CPATH environment variable by running `export CPATH=[path_to_omp.h]`, so for the example path above `export CPATH=/opt/homebrew/Cellar/libomp/15.0.7/include/` (it can be checked that the variable has been set correctly by running `env`)
+3. Now, the code can be compiled by running `make` in the particlizationCalc/ directory
 
 ### 3. Running the chain
 a) run vHLLE for example with: \
