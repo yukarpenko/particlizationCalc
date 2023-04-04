@@ -230,6 +230,7 @@ void doCalculations() {
     Qx2 += (p[1]*p[1] - p[2]*p[2])/(pT[ipt]+1e-10) * pds * nf;
     Qy2 += (p[1]*p[2])/(pT[ipt]+1e-10) * pds * nf;
    }
+  if(iel%100000==0) cout << "processed " << iel/1000 << "k elements\n";
  }  // loop over all elements
  delete[] surf;
  cout << "doCalculations: total, bad = " << setw(12) << Nelem << setw(12) << nBadElem << endl;
