@@ -181,7 +181,17 @@ double ffthermal(double *x, double *par) {
  return x[0] * x[0] / (exp((sqrt(x[0] * x[0] + mass * mass) - mu) / T) - stat);
 }
 
-void doCalculations() {
+void doCalculations(double rap) {
+// input: rapidity 'rap'
+ // zeroing the arrays first
+ for (int i = 0; i < Pi_den.size(); i++)
+ for (int j = 0; j < Pi_den[i].size(); j++) {
+  Pi_den[i][j] = 0.0;
+  for(int k=0; k<4; k++) {
+   Pi_num[i][j][k] = 0.0;
+   Pi_num_xi[i][j][k] = 0.0;
+  }
+ }
  const double gmumu[4] = {1., -1., -1., -1.};
  const double tvect[4] = {1.,0., 0., 0.};
  particle = database->GetPDGParticle(3122);
@@ -200,8 +210,8 @@ void doCalculations() {
   for (int ipt = 0; ipt < pT.size(); ipt++)
    for (int iphi = 0; iphi < phi.size(); iphi++) {
     double mT = sqrt(mass * mass + pT[ipt] * pT[ipt]);
-    double p[4] = {mT, pT[ipt]*cos(phi[iphi]), pT[ipt]*sin(phi[iphi]), 0};
-    double p_[4] = {mT, -pT[ipt]*cos(phi[iphi]), -pT[ipt]*sin(phi[iphi]), 0};
+    double p[4] = {mT*cosh(rap), pT[ipt]*cos(phi[iphi]), pT[ipt]*sin(phi[iphi]), mT*sinh(rap)};
+    double p_[4] = {mT*cosh(rap), -pT[ipt]*cos(phi[iphi]), -pT[ipt]*sin(phi[iphi]), -mT*sinh(rap)};
     double pds = 0., pu = 0.;
     for (int mu = 0; mu < 4; mu++) {
      pds += p[mu] * surf[iel].dsigma[mu];
@@ -232,7 +242,7 @@ void doCalculations() {
    }
   if(iel%100000==0) cout << "processed " << iel/1000 << "k elements\n";
  }  // loop over all elements
- delete[] surf;
+ //delete[] surf;
  cout << "doCalculations: total, bad = " << setw(12) << Nelem << setw(12) << nBadElem << endl;
  cout << "number of elements*pT configurations where nf>1.0: " << nFermiFail
   << endl;
@@ -327,15 +337,15 @@ void calcEP1() {
  cout << "EP_angles: " << atan2(Qy1, Qx1) << "  " << atan2(Qy2, Qx2) << endl;
 }
 
-void outputPolarization(char *out_file) {
- ofstream fout(out_file);
+void outputPolarization(char *out_file, double rap) {
+ static ofstream fout(out_file);
  if (!fout) {
   cout << "I/O error with " << out_file << endl;
   exit(1);
  }
  for (int ipt = 0; ipt < pT.size(); ipt++)
   for (int iphi = 0; iphi < phi.size(); iphi++) {
-   fout << setw(14) << pT[ipt] << setw(14) << phi[iphi]
+   fout << setw(14) << rap << setw(14) << pT[ipt] << setw(14) << phi[iphi]
      << setw(14) << Pi_den[ipt][iphi];
    for(int mu=0; mu<4; mu++)
     fout << setw(14) << Pi_num[ipt][iphi][mu] * hbarC / (8.0 * particle->GetMass());
@@ -343,12 +353,14 @@ void outputPolarization(char *out_file) {
     fout << setw(14) << - Pi_num_xi[ipt][iphi][mu] * hbarC / (8.0 * particle->GetMass());
    fout << endl;
  }
- fout.close();
+}
+
+void outputDimensions(char *out_file, int dim_rap) {
  char dim_file [200];
  strcpy(dim_file, out_file);
  strcat(dim_file, ".dim");
  ofstream fdim(dim_file);
- fdim << pT.size() << "  " << phi.size() << endl;
+ fdim << dim_rap << "  " << pT.size() << "  " << phi.size() << endl;
  fdim.close();
 }
 

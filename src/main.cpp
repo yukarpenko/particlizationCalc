@@ -71,11 +71,17 @@ int main(int argc, char **argv) {
  gen::load(surface_file, getNlines(surface_file));
  #ifndef PLOTS
  gen::calcEP1();
- gen::doCalculations();
- gen::outputPolarization(output_file);
+ int dim_rap = 0; // number of steps in rapidity
+ for(double rapidity = -2.0; rapidity<2.05; rapidity += 1.0) {
+  cout << "rapidity step: " << rapidity << endl;
+  gen::doCalculations(rapidity);
+  gen::outputPolarization(output_file, rapidity);
+  dim_rap++;
+ }
  #else
  gen::calcInvariantQuantities();
  #endif
+ gen::outputDimensions(output_file, dim_rap);
 
  // ========== trees & files
  time_t start, end;
