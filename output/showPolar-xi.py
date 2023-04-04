@@ -86,12 +86,17 @@ dndp2d = dndp.reshape((dimP,dimPhi)).T
 Py_phi = np.array([0.0] * dimPhi)
 Pz_phi = np.array([0.0] * dimPhi)
 dn_phi = np.array([0.0] * dimPhi)
+meanPi = 0.0
+dndpInt = 0.0
 for iphi in range(dimPhi):
  for ipt in range(dimP):
   if pT[iphi,ipt]>0.4 and pT[iphi,ipt]<10.0:          ### pT range!
    Py_phi[iphi] += Piyurf2d[iphi,ipt] * pT[iphi,ipt]
    Pz_phi[iphi] += Pizurf2d[iphi,ipt] * pT[iphi,ipt]
    dn_phi[iphi] += dndp2d[iphi,ipt] * pT[iphi,ipt]
+   meanPi += Piyurf2d[iphi,ipt] * pT[iphi,ipt]
+   dndpInt += dndp2d[iphi,ipt] * pT[iphi,ipt]
+print('** average polarization = ', xFactor*meanPi/dndpInt)
 
 
 #===========plotting:
