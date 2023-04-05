@@ -126,7 +126,7 @@ struct element {
 element *surf;
 vector<double> pT, phi;
 vector<vector<vector<double> > > Pi_num; // numerator of eq. 1 of 2103.14621
-vector<vector<vector<double> > > Pi_num_xi; // (minus) numerator of eq. 3 of 2103.14621
+vector<vector<vector<double> > > Pi_num_exact; // (minus) numerator of eq. 3 of 2103.14621
 vector<vector<double> > Pi_den; // denominator of eq. 1 of 2103.14621
 int nhydros;
 TCanvas *plotSymm, *plotAsymm, *plotMod;
@@ -212,26 +212,26 @@ void load(char *filename, int N) {
 }
 
 void initCalc() {
- for (double _pT = 0.0; _pT < 3.01; _pT += 0.2) {
+ for (double _pT = 0.0; _pT < 6.01; _pT += 0.2) {
   pT.push_back(_pT);
  }
  for (double _phi = 0.0; _phi < 2.0*M_PI-1e-5; _phi += M_PI/20) {
   phi.push_back(_phi);
  }
  Pi_num.resize(pT.size());
- Pi_num_xi.resize(pT.size());
+ Pi_num_exact.resize(pT.size());
  Pi_den.resize(pT.size());
  for (int i = 0; i < Pi_num.size(); i++) {
   Pi_num[i].resize(phi.size());
-  Pi_num_xi[i].resize(phi.size());
+  Pi_num_exact[i].resize(phi.size());
   Pi_den[i].resize(phi.size());
   for (int j = 0; j < Pi_num[i].size(); j++) {
    Pi_den[i][j] = 0.0;
    Pi_num[i][j].resize(4);
-   Pi_num_xi[i][j].resize(4);
+   Pi_num_exact[i][j].resize(4);
    for(int k=0; k<4; k++) {
     Pi_num[i][j][k] = 0.0;
-    Pi_num_xi[i][j][k] = 0.0;
+    Pi_num_exact[i][j][k] = 0.0;
    }
   }
  }
@@ -280,30 +280,33 @@ void doCalculations() {
     double mT = sqrt(mass * mass + pT[ipt] * pT[ipt]);
     double p[4] = {mT, pT[ipt]*cos(phi[iphi]), pT[ipt]*sin(phi[iphi]), 0};
     double p_[4] = {mT, -pT[ipt]*cos(phi[iphi]), -pT[ipt]*sin(phi[iphi]), 0};
-    double pds = 0., pu = 0.;
-    for (int mu = 0; mu < 4; mu++) {
-     pds += p[mu] * surf[iel].dsigma[mu];
-     pu += p[mu] * surf[iel].u[mu] * gmumu[mu];
-    }
-    const double mutot = surf[iel].mub * baryonCharge
-      + surf[iel].muq * electricCharge + surf[iel].mus * strangeness;
-    const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) + 1.0);
-    if(nf > 1.0) nFermiFail++;
-    Pi_den[ipt][iphi] += pds * nf ;
+    double s[4] = {0.,0.,0.,0.};
+    double pds = 0., pu = 0., s_sq=0.;
+    
     for(int mu=0; mu<4; mu++)
      for(int nu=0; nu<4; nu++)
       for(int rh=0; rh<4; rh++)
-       for(int sg=0; sg<4; sg++) {
-        // computing the 'standard' polarization expression
-        Pi_num[ipt][iphi][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
-                                * p_[sg] * surf[iel].dbeta[nu][rh];
-        // computing the extra 'xi' term for the polarization (with a minus sign)
-        if(nu==0) //If tvect is not {1,0,0,0} comment this line                                          <-!WARNING!
-        for(int ta=0; ta<4; ta++)
-         Pi_num_xi[ipt][iphi][mu] += pds * nf * (1. - nf) * levi(mu, nu, rh, sg)
-                     * p_[sg] * p[ta] / p[0] * tvect[nu]
-                     * ( surf[iel].dbeta[rh][ta] + surf[iel].dbeta[ta][rh]);
-       }
+       for(int sg=0; sg<3; sg++){ //sg=3 is zero because p_[3]=0. This speeds up the program
+		   s[mu] += levi(mu, nu, rh, sg)
+                                * p_[sg] * surf[iel].dbeta[nu][rh]/(2*particle->GetMass());
+		   }
+    for (int mu = 0; mu < 4; mu++) {
+     pds += p[mu] * surf[iel].dsigma[mu];
+     pu += p[mu] * surf[iel].u[mu] * gmumu[mu];
+     s_sq += s[mu]*s[mu]*gmumu[mu];
+    }
+
+	const double mutot = surf[iel].mub * baryonCharge
+      + surf[iel].muq * electricCharge + surf[iel].mus * strangeness;
+    const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) + 1.0);
+    
+	if(nf > 1.0) nFermiFail++;
+    Pi_den[ipt][iphi] += pds * nf ;
+    for(int mu=0; mu<4; mu++){
+		Pi_num[ipt][iphi][mu] += pds * nf *  s[mu] *(1. - nf/c1)/4.;
+		Pi_num_exact[ipt][iphi][mu] += 0.5*pds * nf *  (s[mu]/sqrt(-s_sq)) * sinh(sqrt(-s_sq)*0.5)/(cosh(sqrt(-s_sq)*0.5)+exp(-(pu - mutot)/surf[iel].T));
+		}
+
     Qx1 += p[1] * pds * nf;
     Qy1 += p[2] * pds * nf;
     Qx2 += (p[1]*p[1] - p[2]*p[2])/(pT[ipt]+1e-10) * pds * nf;
@@ -422,9 +425,9 @@ void outputPolarization(char *out_file) {
    fout << setw(14) << pT[ipt] << setw(14) << phi[iphi]
      << setw(14) << Pi_den[ipt][iphi];
    for(int mu=0; mu<4; mu++)
-    fout << setw(14) << Pi_num[ipt][iphi][mu] * hbarC / (8.0 * particle->GetMass());
+    fout << setw(14) << Pi_num[ipt][iphi][mu] * hbarC ;// / (8.0 * particle->GetMass()); THE MASS IS NOW TAKEN INTO ACCOUNT IN doCalculations
    for(int mu=0; mu<4; mu++)
-    fout << setw(14) << - Pi_num_xi[ipt][iphi][mu] * hbarC / (8.0 * particle->GetMass()); // the minus sign in Pi_num is accounted for here
+    fout << setw(14) << Pi_num_exact[ipt][iphi][mu] * hbarC; // / (8.0 * particle->GetMass()); 
    fout << endl;
  }
  fout.close();
