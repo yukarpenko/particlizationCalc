@@ -44,8 +44,8 @@ void getranseedcpp_(int *seed) { *seed = ranseed; }
 
 int main(int argc, char **argv) {
  // command-line parameters
- if (argc != 3) {
-  cout << "usage: ./calc <surface_file> <output_file>\n" << endl;
+ if (argc < 3) {
+  cout << "usage: ./calc <surface_file> <output_file> [PID]\n" << endl;
   exit(1);
  }
  char surface_file[200], output_file[200];
@@ -71,7 +71,10 @@ int main(int argc, char **argv) {
  gen::load(surface_file, getNlines(surface_file));
  #ifndef PLOTS
  gen::calcEP1();
- gen::doCalculations();
+ if(argc==4)
+  gen::doCalculations(atoi(argv[3]));
+ else
+  gen::doCalculations();
  gen::outputPolarization(output_file);
  #else
  gen::calcInvariantQuantities();

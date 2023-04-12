@@ -181,10 +181,10 @@ double ffthermal(double *x, double *par) {
  return x[0] * x[0] / (exp((sqrt(x[0] * x[0] + mass * mass) - mu) / T) - stat);
 }
 
-void doCalculations() {
+void doCalculations(int pid) {
  const double gmumu[4] = {1., -1., -1., -1.};
  const double tvect[4] = {1.,0., 0., 0.};
- particle = database->GetPDGParticle(3122);
+ particle = database->GetPDGParticle(pid);
  const double mass = particle->GetMass();  // pion
  const double baryonCharge = particle->GetBaryonNumber();
  const double electricCharge = particle->GetElectricCharge();
