@@ -283,13 +283,15 @@ void doCalculations() {
     double s[4] = {0.,0.,0.,0.};
     double pds = 0., pu = 0., s_sq=0.;
     
-    for(int mu=0; mu<4; mu++)
+    for(int mu=0; mu<4; mu++){
      for(int nu=0; nu<4; nu++)
       for(int rh=0; rh<4; rh++)
        for(int sg=0; sg<3; sg++){ //sg=3 is zero because p_[3]=0. This speeds up the program
 		   s[mu] += levi(mu, nu, rh, sg)
                                 * p_[sg] * surf[iel].dbeta[nu][rh]/(2*particle->GetMass());
 		   }
+		   s[mu] *= hbarC; //now s is adimensional
+	}
     for (int mu = 0; mu < 4; mu++) {
      pds += p[mu] * surf[iel].dsigma[mu];
      pu += p[mu] * surf[iel].u[mu] * gmumu[mu];
@@ -298,12 +300,12 @@ void doCalculations() {
 
 	const double mutot = surf[iel].mub * baryonCharge
       + surf[iel].muq * electricCharge + surf[iel].mus * strangeness;
-    const double nf = c1 / (exp( (pu - mutot) / surf[iel].T) + 1.0);
+    const double nf = 1 / (exp( (pu - mutot) / surf[iel].T) + 1.0);
     
 	if(nf > 1.0) nFermiFail++;
     Pi_den[ipt][iphi] += pds * nf ;
     for(int mu=0; mu<4; mu++){
-		Pi_num[ipt][iphi][mu] += pds * nf *  s[mu] *(1. - nf/c1)/4.;
+		Pi_num[ipt][iphi][mu] += pds * nf *  s[mu] *(1. - nf)/4.;
 		Pi_num_exact[ipt][iphi][mu] += 0.5*pds * nf *  (s[mu]/sqrt(-s_sq)) * sinh(sqrt(-s_sq)*0.5)/(cosh(sqrt(-s_sq)*0.5)+exp(-(pu - mutot)/surf[iel].T));
 		}
 
@@ -425,9 +427,9 @@ void outputPolarization(char *out_file) {
    fout << setw(14) << pT[ipt] << setw(14) << phi[iphi]
      << setw(14) << Pi_den[ipt][iphi];
    for(int mu=0; mu<4; mu++)
-    fout << setw(14) << Pi_num[ipt][iphi][mu] * hbarC ;// / (8.0 * particle->GetMass()); THE MASS IS NOW TAKEN INTO ACCOUNT IN doCalculations
+    fout << setw(14) << Pi_num[ipt][iphi][mu]  ;// / (8.0 * particle->GetMass()); THE MASS IS NOW TAKEN INTO ACCOUNT IN doCalculations
    for(int mu=0; mu<4; mu++)
-    fout << setw(14) << Pi_num_exact[ipt][iphi][mu] * hbarC; // / (8.0 * particle->GetMass()); 
+    fout << setw(14) << Pi_num_exact[ipt][iphi][mu] ; // / (8.0 * particle->GetMass()); 
    fout << endl;
  }
  fout.close();
