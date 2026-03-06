@@ -83,13 +83,13 @@ void load(char *filename, int N) {
   string line;
   istringstream instream;
 
-  // NEW: skip initial comment lines
+  // Skip header comments at the top, keep the first data line.
   do {
     getline(fin, line);
   } while (line.size() > 0 && line[0] == '#');
 
   for (int n = 0; n < Nelem; n++) {
-    getline(fin, line);
+    if (n > 0) getline(fin, line);
     instream.str(line);
     instream.seekg(0);
     instream.clear();  // does not work with gcc 4.1 otherwise
